@@ -2,13 +2,6 @@
 
 Advanced Bug Bounty Automation Framework
 
-██████╗ ███████╗██╗   ██╗██╗   ██╗███████╗██╗  ██╗
-██╔══██╗██╔════╝██║   ██║██║   ██║██╔════╝╚██╗██╔╝
-██████╔╝█████╗  ██║   ██║██║   ██║█████╗   ╚███╔╝ 
-██╔══██╗██╔══╝  ╚██╗ ██╔╝██║   ██║██╔══╝   ██╔██╗ 
-██║  ██║███████╗ ╚████╔╝ ╚██████╔╝███████╗██╔╝ ██╗
-╚═╝  ╚═╝╚══════╝  ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═╝
-
 **Author:** G33L0  
 **Telegram:** @x0x0h33l0  
 **Version:** 1.0
@@ -26,15 +19,15 @@ Advanced Bug Bounty Automation Framework
 8. **Price Manipulation Scanner** - E-commerce security testing
 
 ### Advanced Features:
-- ✅ Sequential execution (safe, recommended)
-- ✅ Intelligent vulnerability detection
-- ✅ Shared intelligence database
-- ✅ World-class HTML reports
-- ✅ Progress tracking
-- ✅ Error handling
-- ✅ Comprehensive logging
+- Sequential execution (safe, recommended)
+- Intelligent vulnerability detection
+- Shared intelligence database
+- World-class HTML reports
+- Progress tracking
+- Error handling
+- Comprehensive logging
 
-## 🚀 Installation
+## Installation
 
 ```bash
 # Clone repository
