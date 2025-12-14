@@ -6,7 +6,7 @@ Advanced Bug Bounty Automation Framework
 **Telegram:** @x0x0h33l0  
 **Version:** 1.0
 
-## 🎯 Features
+## Features
 
 ### 8 Integrated Security Tools:
 1. **SubdomainHunter Pro** - Advanced subdomain discovery
