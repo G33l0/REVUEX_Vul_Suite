@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 “””
-REVUEX Report Generator - World-Class Professional Security Reports
+REVUEX Report Generator v2.0 - World-Class Professional Security Reports
 Author: G33L0
 Telegram: @x0x0h33l0
+GitHub: github.com/G33L0/revuex-vul-suite
 
-Enhanced with:
+Enhanced v2.0 Features:
 
-- Executive Summary
-- Technical Evidence
-- Severity Assessment
-- Clear Remediation Guidance
+- Support for all 19 security scanners
+- Enhanced remediation for new vulnerability types (SSRF, XXE, File Upload, CORS, CSRF, Session, Dependency, Business Logic)
+- OWASP Top 10 2021 mapping
+- Scanner-specific information and average bounties
+- Executive Summary with business impact
+- Technical Evidence with HTTP requests/responses
+- Severity Assessment with CVSS scoring
+- Clear Remediation Guidance with validation steps
+- Compliance mapping (PCI-DSS, GDPR, HIPAA, SOC2)
+- Attack path visualization
+- Professional HTML/CSS styling
   “””
 
 from pathlib import Path
@@ -22,10 +30,10 @@ class ReportGenerator:
 
 ```
 def __init__(self, workspace):
-    """Initialize report generator"""
+    """Initialize report generator v2.0"""
     self.workspace = Path(workspace)
     
-    # Severity scoring matrix
+    # Severity scoring matrix with CVSS 3.1
     self.severity_matrix = {
         'critical': {
             'score': 9.0,
@@ -60,6 +68,124 @@ def __init__(self, workspace):
             'sla': '90 days'
         }
     }
+    
+    # NEW v2.0: Scanner-specific information
+    self.scanner_info = {
+        'SSRFScanner': {
+            'name': 'SSRF Scanner',
+            'category': 'Server-Side',
+            'owasp': 'A10:2021',
+            'avg_bounty': '$8,000'
+        },
+        'EnhancedSQLiScanner': {
+            'name': 'Enhanced SQLi Scanner',
+            'category': 'Injection',
+            'owasp': 'A03:2021',
+            'avg_bounty': '$5,000'
+        },
+        'IDORTester': {
+            'name': 'IDOR Tester',
+            'category': 'Access Control',
+            'owasp': 'A01:2021',
+            'avg_bounty': '$3,000'
+        },
+        'EnhancedXSSScanner': {
+            'name': 'Enhanced XSS Scanner',
+            'category': 'Injection',
+            'owasp': 'A03:2021',
+            'avg_bounty': '$2,000'
+        },
+        'BusinessLogicAbuser': {
+            'name': 'Business Logic Abuser',
+            'category': 'Design',
+            'owasp': 'A04:2021',
+            'avg_bounty': '$15,000'
+        },
+        'FileUploadTester': {
+            'name': 'File Upload Tester',
+            'category': 'Upload',
+            'owasp': 'A04:2021',
+            'avg_bounty': '$10,000'
+        },
+        'XXEScanner': {
+            'name': 'XXE Scanner',
+            'category': 'Injection',
+            'owasp': 'A03:2021',
+            'avg_bounty': '$8,000'
+        },
+        'SessionAnalyzer': {
+            'name': 'Session Analyzer',
+            'category': 'Authentication',
+            'owasp': 'A07:2021',
+            'avg_bounty': '$2,000'
+        },
+        'CORSScanner': {
+            'name': 'CORS Scanner',
+            'category': 'Configuration',
+            'owasp': 'A05:2021',
+            'avg_bounty': '$1,500'
+        },
+        'CSRFTester': {
+            'name': 'CSRF Tester',
+            'category': 'Access Control',
+            'owasp': 'A01:2021',
+            'avg_bounty': '$2,000'
+        },
+        'DependencyChecker': {
+            'name': 'Dependency Checker',
+            'category': 'Components',
+            'owasp': 'A06:2021',
+            'avg_bounty': '$1,000'
+        },
+        'SubdomainHunter': {
+            'name': 'Subdomain Hunter',
+            'category': 'Reconnaissance',
+            'owasp': 'N/A',
+            'avg_bounty': 'N/A'
+        },
+        'TechFingerprinter': {
+            'name': 'Tech Fingerprinter',
+            'category': 'Reconnaissance',
+            'owasp': 'N/A',
+            'avg_bounty': 'N/A'
+        },
+        'JSSecretsMiner': {
+            'name': 'JS Secrets Miner',
+            'category': 'Reconnaissance',
+            'owasp': 'A02:2021',
+            'avg_bounty': '$500'
+        },
+        'GraphQLIntrospector': {
+            'name': 'GraphQL Introspector',
+            'category': 'API',
+            'owasp': 'A01:2021',
+            'avg_bounty': '$3,000'
+        },
+        'JWTAnalyzer': {
+            'name': 'JWT Analyzer',
+            'category': 'Authentication',
+            'owasp': 'A07:2021',
+            'avg_bounty': '$2,000'
+        },
+        'APKAnalyzer': {
+            'name': 'APK Analyzer',
+            'category': 'Mobile',
+            'owasp': 'A08:2021',
+            'avg_bounty': '$5,000'
+        },
+        'RaceConditionTester': {
+            'name': 'Race Condition Tester',
+            'category': 'Logic',
+            'owasp': 'A04:2021',
+            'avg_bounty': '$7,000'
+        },
+        'PriceManipulationScanner': {
+            'name': 'Price Manipulation Scanner',
+            'category': 'Payment',
+            'owasp': 'A04:2021',
+            'avg_bounty': '$10,000'
+        }
+    }
 
 def generate_html_report(self, data):
     """Generate comprehensive HTML report with professional sections"""
@@ -74,7 +200,7 @@ def generate_html_report(self, data):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>REVUEX Security Assessment - {data['target']}</title>
+    <title>REVUEX v2.0 Security Assessment - {data['target']}</title>
     <style>
         {self._get_enhanced_css()}
     </style>
@@ -85,6 +211,11 @@ def generate_html_report(self, data):
         {self._generate_header(data)}
 
 ```
+    <!-- Version Badge -->
+    <div class="version-badge">
+        <strong>🔒 REVUEX Suite v2.0</strong> | 19 Security Scanners | OWASP Top 10 2021 Coverage | 90%+ Vulnerability Detection
+    </div>
+    
     <!-- Executive Summary -->
     {self._generate_executive_summary(data, exec_summary)}
     
@@ -197,8 +328,8 @@ def _calculate_business_impact(self, vulnerabilities, confirmed_bugs):
         'compliance_violation_risk': False
     }
     
-    high_risk_types = ['SQL Injection', 'Authentication Bypass', 'RCE', 'IDOR', 'Sensitive Data Exposure']
-    financial_risk_types = ['Price Manipulation', 'Payment Bypass', 'Discount Abuse']
+    high_risk_types = ['SQL Injection', 'Authentication Bypass', 'RCE', 'IDOR', 'Sensitive Data Exposure', 'SSRF', 'XXE']
+    financial_risk_types = ['Price Manipulation', 'Payment Bypass', 'Discount Abuse', 'Business Logic']
     
     for vuln in vulnerabilities + confirmed_bugs:
         vuln_type = vuln.get('type', '')
@@ -251,10 +382,10 @@ def _assess_compliance_impact(self, vulnerabilities, confirmed_bugs):
         vuln_type = vuln.get('type', '')
         tags = vuln.get('tags', [])
         
-        if 'payment' in tags or 'Price Manipulation' in vuln_type:
+        if 'payment' in tags or 'Price Manipulation' in vuln_type or 'SQL Injection' in vuln_type:
             compliance_issues['PCI_DSS'] = True
         
-        if 'IDOR' in vuln_type or 'Data Exposure' in vuln_type:
+        if 'IDOR' in vuln_type or 'Data Exposure' in vuln_type or 'SSRF' in vuln_type:
             compliance_issues['GDPR'] = True
             compliance_issues['HIPAA'] = True
         
@@ -278,17 +409,17 @@ def _identify_vulnerable_technologies(self, data):
 def _generate_header(self, data):
     """Generate report header"""
     return f"""
-    <div class="header">
-        <h1>🔒 REVUEX</h1>
-        <div class="subtitle">Professional Security Assessment Report</div>
-        <div class="target-badge">{data['target']}</div>
-        <div class="author">
-            <strong>Security Researcher:</strong> G33L0 | 
-            <strong>Contact:</strong> @x0x0h33l0 | 
-            <strong>Date:</strong> {datetime.now().strftime('%B %d, %Y')}
-        </div>
+<div class="header">
+    <h1>🔒 REVUEX</h1>
+    <div class="subtitle">Professional Security Assessment Report v2.0</div>
+    <div class="target-badge">{data['target']}</div>
+    <div class="author">
+        <strong>Security Researcher:</strong> G33L0 | 
+        <strong>Contact:</strong> @x0x0h33l0 | 
+        <strong>Date:</strong> {datetime.now().strftime('%B %d, %Y')}
     </div>
-    """
+</div>
+"""
 
 def _generate_executive_summary(self, data, exec_summary):
     """Generate executive summary section"""
@@ -305,124 +436,125 @@ def _generate_executive_summary(self, data, exec_summary):
     compliance_at_risk = [k.replace('_', ' ') for k, v in exec_summary['compliance_impact'].items() if v]
     
     return f"""
-    <div class="section executive-summary">
-        <h2 class="section-title">📋 EXECUTIVE SUMMARY</h2>
-        
-        <div class="exec-box">
-            <h3>🎯 Assessment Overview</h3>
-            <p class="exec-text">
-                This security assessment of <strong>{data['target']}</strong> was conducted from 
-                <strong>{data['start_time']}</strong> to <strong>{data['end_time']}</strong> 
-                (Duration: {data['duration']}). The assessment employed automated vulnerability 
-                discovery techniques across {exec_summary['attack_surface']['total_subdomains']} 
-                subdomains and {exec_summary['attack_surface']['total_endpoints']} endpoints.
-            </p>
-        </div>
-        
-        <div class="risk-score-container">
-            <div class="risk-score" style="border-color: {exec_summary['risk_color']};">
-                <div class="risk-number" style="color: {exec_summary['risk_color']};">
-                    {exec_summary['risk_score']}/100
-                </div>
-                <div class="risk-label" style="background: {exec_summary['risk_color']};">
-                    OVERALL RISK: {exec_summary['risk_level']}
-                </div>
+<div class="section executive-summary">
+    <h2 class="section-title">📋 EXECUTIVE SUMMARY</h2>
+    
+    <div class="exec-box">
+        <h3>🎯 Assessment Overview</h3>
+        <p class="exec-text">
+            This security assessment of <strong>{data['target']}</strong> was conducted from 
+            <strong>{data['start_time']}</strong> to <strong>{data['end_time']}</strong> 
+            (Duration: {data['duration']}). The assessment employed automated vulnerability 
+            discovery techniques across {exec_summary['attack_surface']['total_subdomains']} 
+            subdomains and {exec_summary['attack_surface']['total_endpoints']} endpoints using 
+            the REVUEX v2.0 Suite with 19 specialized security scanners.
+        </p>
+    </div>
+    
+    <div class="risk-score-container">
+        <div class="risk-score" style="border-color: {exec_summary['risk_color']};">
+            <div class="risk-number" style="color: {exec_summary['risk_color']};">
+                {exec_summary['risk_score']}/100
             </div>
-        </div>
-        
-        <div class="exec-box critical-findings">
-            <h3>🚨 Critical Findings</h3>
-            <div class="finding-grid">
-                <div class="finding-item">
-                    <div class="finding-number critical">{exec_summary['confirmed_exploits']}</div>
-                    <div class="finding-label">Confirmed Exploitable Bugs</div>
-                </div>
-                <div class="finding-item">
-                    <div class="finding-number high">{exec_summary['total_vulnerabilities']}</div>
-                    <div class="finding-label">Total Vulnerabilities</div>
-                </div>
-                <div class="finding-item">
-                    <div class="finding-number medium">{exec_summary['affected_endpoints']}</div>
-                    <div class="finding-label">Affected Endpoints</div>
-                </div>
-                <div class="finding-item">
-                    <div class="finding-number critical">{exec_summary['severity_distribution'].get('critical', 0)}</div>
-                    <div class="finding-label">Critical Severity</div>
-                </div>
+            <div class="risk-label" style="background: {exec_summary['risk_color']};">
+                OVERALL RISK: {exec_summary['risk_level']}
             </div>
-        </div>
-        
-        <div class="exec-box">
-            <h3>💼 Business Impact Assessment</h3>
-            <div class="impact-grid">
-                {self._generate_impact_items(active_impacts)}
-            </div>
-            {self._generate_no_impacts_message(active_impacts)}
-        </div>
-        
-        <div class="exec-box">
-            <h3>⚖️ Compliance & Regulatory Impact</h3>
-            {self._generate_compliance_section(compliance_at_risk)}
-        </div>
-        
-        <div class="exec-box">
-            <h3>🛠️ Recommended Actions</h3>
-            <div class="action-timeline">
-                <div class="action-item immediate">
-                    <div class="action-header">
-                        <span class="action-badge critical">IMMEDIATE (24-48 hours)</span>
-                    </div>
-                    <div class="action-content">
-                        Address {exec_summary['remediation_timeline']['immediate_action']} critical vulnerabilities.
-                        Focus on confirmed exploits with direct business impact.
-                    </div>
-                </div>
-                <div class="action-item urgent">
-                    <div class="action-header">
-                        <span class="action-badge high">SHORT-TERM (1-2 weeks)</span>
-                    </div>
-                    <div class="action-content">
-                        Remediate {exec_summary['remediation_timeline']['short_term']} high-severity issues.
-                        Implement security controls and monitoring.
-                    </div>
-                </div>
-                <div class="action-item moderate">
-                    <div class="action-header">
-                        <span class="action-badge medium">MEDIUM-TERM (1 month)</span>
-                    </div>
-                    <div class="action-content">
-                        Fix {exec_summary['remediation_timeline']['medium_term']} medium-severity vulnerabilities.
-                        Enhance security architecture.
-                    </div>
-                </div>
-                <div class="action-item low-priority">
-                    <div class="action-header">
-                        <span class="action-badge low">LONG-TERM (3 months)</span>
-                    </div>
-                    <div class="action-content">
-                        Address {exec_summary['remediation_timeline']['long_term']} low-severity findings.
-                        Implement security best practices.
-                    </div>
-                </div>
-            </div>
-            <div class="timeline-summary">
-                <strong>Estimated Total Remediation Time:</strong> {exec_summary['remediation_timeline']['estimated_total_days']} days
-                with dedicated security team resources.
-            </div>
-        </div>
-        
-        <div class="exec-box key-recommendations">
-            <h3>🎯 Key Recommendations</h3>
-            <ol class="recommendations-list">
-                <li><strong>Immediate Patch Deployment:</strong> Apply security patches for all critical vulnerabilities within 24 hours.</li>
-                <li><strong>Security Review:</strong> Conduct code review for affected components, especially authentication and authorization mechanisms.</li>
-                <li><strong>Monitoring Enhancement:</strong> Implement real-time security monitoring and alerting for exploit attempts.</li>
-                <li><strong>Penetration Testing:</strong> Schedule follow-up manual penetration testing to validate automated findings.</li>
-                <li><strong>Security Training:</strong> Provide secure coding training to development team focusing on identified vulnerability patterns.</li>
-            </ol>
         </div>
     </div>
-    """
+    
+    <div class="exec-box critical-findings">
+        <h3>🚨 Critical Findings</h3>
+        <div class="finding-grid">
+            <div class="finding-item">
+                <div class="finding-number critical">{exec_summary['confirmed_exploits']}</div>
+                <div class="finding-label">Confirmed Exploitable Bugs</div>
+            </div>
+            <div class="finding-item">
+                <div class="finding-number high">{exec_summary['total_vulnerabilities']}</div>
+                <div class="finding-label">Total Vulnerabilities</div>
+            </div>
+            <div class="finding-item">
+                <div class="finding-number medium">{exec_summary['affected_endpoints']}</div>
+                <div class="finding-label">Affected Endpoints</div>
+            </div>
+            <div class="finding-item">
+                <div class="finding-number critical">{exec_summary['severity_distribution'].get('critical', 0)}</div>
+                <div class="finding-label">Critical Severity</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="exec-box">
+        <h3>💼 Business Impact Assessment</h3>
+        <div class="impact-grid">
+            {self._generate_impact_items(active_impacts)}
+        </div>
+        {self._generate_no_impacts_message(active_impacts)}
+    </div>
+    
+    <div class="exec-box">
+        <h3>⚖️ Compliance & Regulatory Impact</h3>
+        {self._generate_compliance_section(compliance_at_risk)}
+    </div>
+    
+    <div class="exec-box">
+        <h3>🛠️ Recommended Actions</h3>
+        <div class="action-timeline">
+            <div class="action-item immediate">
+                <div class="action-header">
+                    <span class="action-badge critical">IMMEDIATE (24-48 hours)</span>
+                </div>
+                <div class="action-content">
+                    Address {exec_summary['remediation_timeline']['immediate_action']} critical vulnerabilities.
+                    Focus on confirmed exploits with direct business impact.
+                </div>
+            </div>
+            <div class="action-item urgent">
+                <div class="action-header">
+                    <span class="action-badge high">SHORT-TERM (1-2 weeks)</span>
+                </div>
+                <div class="action-content">
+                    Remediate {exec_summary['remediation_timeline']['short_term']} high-severity issues.
+                    Implement security controls and monitoring.
+                </div>
+            </div>
+            <div class="action-item moderate">
+                <div class="action-header">
+                    <span class="action-badge medium">MEDIUM-TERM (1 month)</span>
+                </div>
+                <div class="action-content">
+                    Fix {exec_summary['remediation_timeline']['medium_term']} medium-severity vulnerabilities.
+                    Enhance security architecture.
+                </div>
+            </div>
+            <div class="action-item low-priority">
+                <div class="action-header">
+                    <span class="action-badge low">LONG-TERM (3 months)</span>
+                </div>
+                <div class="action-content">
+                    Address {exec_summary['remediation_timeline']['long_term']} low-severity findings.
+                    Implement security best practices.
+                </div>
+            </div>
+        </div>
+        <div class="timeline-summary">
+            <strong>Estimated Total Remediation Time:</strong> {exec_summary['remediation_timeline']['estimated_total_days']} days
+            with dedicated security team resources.
+        </div>
+    </div>
+    
+    <div class="exec-box key-recommendations">
+        <h3>🎯 Key Recommendations</h3>
+        <ol class="recommendations-list">
+            <li><strong>Immediate Patch Deployment:</strong> Apply security patches for all critical vulnerabilities within 24 hours.</li>
+            <li><strong>Security Review:</strong> Conduct code review for affected components, especially authentication and authorization mechanisms.</li>
+            <li><strong>Monitoring Enhancement:</strong> Implement real-time security monitoring and alerting for exploit attempts.</li>
+            <li><strong>Penetration Testing:</strong> Schedule follow-up manual penetration testing to validate automated findings.</li>
+            <li><strong>Security Training:</strong> Provide secure coding training to development team focusing on identified vulnerability patterns.</li>
+        </ol>
+    </div>
+</div>
+"""
 
 def _generate_impact_items(self, impacts):
     """Generate impact items HTML"""
@@ -455,120 +587,120 @@ def _generate_compliance_section(self, compliance_at_risk):
 def _generate_quick_stats(self, data):
     """Generate quick stats dashboard"""
     return f"""
-    <div class="summary">
-        <div class="summary-card">
-            <div class="number critical">{len(data['confirmed_bugs'])}</div>
-            <div class="label">Confirmed Exploits</div>
-        </div>
-        <div class="summary-card">
-            <div class="number high">{len(data['vulnerabilities'])}</div>
-            <div class="label">Total Vulnerabilities</div>
-        </div>
-        <div class="summary-card">
-            <div class="number info">{len(data['reconnaissance']['subdomains'])}</div>
-            <div class="label">Subdomains Scanned</div>
-        </div>
-        <div class="summary-card">
-            <div class="number medium">{sum(len(eps) for eps in data['reconnaissance']['endpoints'].values())}</div>
-            <div class="label">Endpoints Discovered</div>
-        </div>
+<div class="summary">
+    <div class="summary-card">
+        <div class="number critical">{len(data['confirmed_bugs'])}</div>
+        <div class="label">Confirmed Exploits</div>
     </div>
-    """
+    <div class="summary-card">
+        <div class="number high">{len(data['vulnerabilities'])}</div>
+        <div class="label">Total Vulnerabilities</div>
+    </div>
+    <div class="summary-card">
+        <div class="number info">{len(data['reconnaissance']['subdomains'])}</div>
+        <div class="label">Subdomains Scanned</div>
+    </div>
+    <div class="summary-card">
+        <div class="number medium">{sum(len(eps) for eps in data['reconnaissance']['endpoints'].values())}</div>
+        <div class="label">Endpoints Discovered</div>
+    </div>
+</div>
+"""
 
 def _generate_severity_breakdown(self, data):
     """Generate severity breakdown section"""
     stats = data['statistics']['findings']
     
     return f"""
-    <div class="section" style="background: #f8f9fa;">
-        <h2 class="section-title">📊 SEVERITY BREAKDOWN</h2>
-        <div class="severity-details">
-            {self._generate_severity_detail('critical', stats.get('critical', 0))}
-            {self._generate_severity_detail('high', stats.get('high', 0))}
-            {self._generate_severity_detail('medium', stats.get('medium', 0))}
-            {self._generate_severity_detail('low', stats.get('low', 0))}
-        </div>
+<div class="section" style="background: #f8f9fa;">
+    <h2 class="section-title">📊 SEVERITY BREAKDOWN</h2>
+    <div class="severity-details">
+        {self._generate_severity_detail('critical', stats.get('critical', 0))}
+        {self._generate_severity_detail('high', stats.get('high', 0))}
+        {self._generate_severity_detail('medium', stats.get('medium', 0))}
+        {self._generate_severity_detail('low', stats.get('low', 0))}
     </div>
-    """
+</div>
+"""
 
 def _generate_severity_detail(self, severity, count):
     """Generate individual severity detail card"""
     info = self.severity_matrix[severity]
     return f"""
-    <div class="severity-card {severity}">
-        <div class="severity-header">
-            <span class="severity-icon">{info['icon']}</span>
-            <span class="severity-name">{severity.upper()}</span>
-            <span class="severity-count">{count}</span>
-        </div>
-        <div class="severity-info">
-            <div><strong>CVSS Range:</strong> {info['cvss_range']}</div>
-            <div><strong>Priority:</strong> {info['priority']}</div>
-            <div><strong>SLA:</strong> {info['sla']}</div>
-        </div>
+<div class="severity-card {severity}">
+    <div class="severity-header">
+        <span class="severity-icon">{info['icon']}</span>
+        <span class="severity-name">{severity.upper()}</span>
+        <span class="severity-count">{count}</span>
     </div>
-    """
+    <div class="severity-info">
+        <div><strong>CVSS Range:</strong> {info['cvss_range']}</div>
+        <div><strong>Priority:</strong> {info['priority']}</div>
+        <div><strong>SLA:</strong> {info['sla']}</div>
+    </div>
+</div>
+"""
 
 def _generate_confirmed_bugs_section(self, bugs):
     """Generate confirmed bugs section with full technical evidence"""
     if not bugs:
         return """
-    <div class="section">
-        <h2 class="section-title">🎯 CONFIRMED EXPLOITABLE BUGS</h2>
-        <div class="no-findings">
-            <div class="success-icon">✅</div>
-            <p>No confirmed exploitable bugs were discovered during this assessment.</p>
-        </div>
+<div class="section">
+    <h2 class="section-title">🎯 CONFIRMED EXPLOITABLE BUGS</h2>
+    <div class="no-findings">
+        <div class="success-icon">✅</div>
+        <p>No confirmed exploitable bugs were discovered during this assessment.</p>
     </div>
-        """
+</div>
+    """
     
     html = """
-    <div class="section">
-        <h2 class="section-title">🎯 CONFIRMED EXPLOITABLE BUGS</h2>
-        <p class="section-description">
-            The following vulnerabilities have been confirmed as exploitable through automated testing.
-            Each finding includes complete technical evidence and proof-of-concept.
-        </p>
-    """
+<div class="section">
+    <h2 class="section-title">🎯 CONFIRMED EXPLOITABLE BUGS</h2>
+    <p class="section-description">
+        The following vulnerabilities have been confirmed as exploitable through automated testing.
+        Each finding includes complete technical evidence and proof-of-concept.
+    </p>
+"""
     
     for idx, bug in enumerate(bugs, 1):
         severity = bug.get('severity', 'high').lower()
         html += f"""
-        <div class="vulnerability-card {severity}">
-            {self._generate_vuln_header(idx, bug, 'CONFIRMED EXPLOIT')}
-            
-            <!-- Basic Information -->
-            <div class="vuln-section">
-                <h4 class="vuln-section-title">📋 Vulnerability Details</h4>
-                {self._generate_basic_info(bug)}
-            </div>
-            
-            <!-- Technical Evidence -->
-            <div class="vuln-section">
-                <h4 class="vuln-section-title">🔬 TECHNICAL EVIDENCE</h4>
-                {self._generate_technical_evidence(bug)}
-            </div>
-            
-            <!-- Proof of Concept -->
-            {self._generate_poc_section(bug)}
-            
-            <!-- Impact Assessment -->
-            {self._generate_impact_assessment(bug, severity)}
-            
-            <!-- Remediation Guidance -->
-            <div class="vuln-section">
-                <h4 class="vuln-section-title">🛠️ REMEDIATION GUIDANCE</h4>
-                {self._generate_detailed_remediation(bug, severity)}
-            </div>
-            
-            <!-- Metadata -->
-            <div class="vuln-metadata">
-                <span><strong>Confirmed:</strong> {bug.get('confirmed_at', 'N/A')}</span>
-                <span><strong>CVE:</strong> {bug.get('cve', 'Pending')}</span>
-                <span><strong>Reference ID:</strong> REV-{self._generate_vuln_id(bug)}</span>
-            </div>
+    <div class="vulnerability-card {severity}">
+        {self._generate_vuln_header(idx, bug, 'CONFIRMED EXPLOIT')}
+        
+        <!-- Basic Information -->
+        <div class="vuln-section">
+            <h4 class="vuln-section-title">📋 Vulnerability Details</h4>
+            {self._generate_basic_info(bug)}
         </div>
-        """
+        
+        <!-- Technical Evidence -->
+        <div class="vuln-section">
+            <h4 class="vuln-section-title">🔬 TECHNICAL EVIDENCE</h4>
+            {self._generate_technical_evidence(bug)}
+        </div>
+        
+        <!-- Proof of Concept -->
+        {self._generate_poc_section(bug)}
+        
+        <!-- Impact Assessment -->
+        {self._generate_impact_assessment(bug, severity)}
+        
+        <!-- Remediation Guidance -->
+        <div class="vuln-section">
+            <h4 class="vuln-section-title">🛠️ REMEDIATION GUIDANCE</h4>
+            {self._generate_detailed_remediation(bug, severity)}
+        </div>
+        
+        <!-- Metadata -->
+        <div class="vuln-metadata">
+            <span><strong>Confirmed:</strong> {bug.get('confirmed_at', 'N/A')}</span>
+            <span><strong>CVE:</strong> {bug.get('cve', 'Pending')}</span>
+            <span><strong>Reference ID:</strong> REV-{self._generate_vuln_id(bug)}</span>
+        </div>
+    </div>
+    """
     
     html += "</div>"
     return html
@@ -577,58 +709,58 @@ def _generate_vulnerabilities_section(self, vulnerabilities):
     """Generate vulnerabilities section with remediation guidance"""
     if not vulnerabilities:
         return """
-    <div class="section" style="background: #f8f9fa;">
-        <h2 class="section-title">🔍 DETECTED VULNERABILITIES</h2>
-        <div class="no-findings">
-            <div class="success-icon">✅</div>
-            <p>No additional vulnerabilities detected beyond confirmed exploits.</p>
-        </div>
+<div class="section" style="background: #f8f9fa;">
+    <h2 class="section-title">🔍 DETECTED VULNERABILITIES</h2>
+    <div class="no-findings">
+        <div class="success-icon">✅</div>
+        <p>No additional vulnerabilities detected beyond confirmed exploits.</p>
     </div>
-        """
+</div>
+    """
     
     html = """
-    <div class="section" style="background: #f8f9fa;">
-        <h2 class="section-title">🔍 DETECTED VULNERABILITIES</h2>
-        <p class="section-description">
-            Additional security issues discovered during reconnaissance and scanning phases.
-            While not yet confirmed as exploitable, these warrant immediate investigation.
-        </p>
-    """
+<div class="section" style="background: #f8f9fa;">
+    <h2 class="section-title">🔍 DETECTED VULNERABILITIES</h2>
+    <p class="section-description">
+        Additional security issues discovered during reconnaissance and scanning phases.
+        While not yet confirmed as exploitable, these warrant immediate investigation.
+    </p>
+"""
     
     for idx, vuln in enumerate(vulnerabilities, 1):
         severity = vuln.get('severity', 'medium').lower()
         html += f"""
-        <div class="vulnerability-card {severity}">
-            {self._generate_vuln_header(idx, vuln, 'POTENTIAL VULNERABILITY')}
-            
-            <!-- Basic Information -->
-            <div class="vuln-section">
-                <h4 class="vuln-section-title">📋 Vulnerability Details</h4>
-                {self._generate_basic_info(vuln)}
-            </div>
-            
-            <!-- Evidence -->
-            <div class="vuln-section">
-                <h4 class="vuln-section-title">🔍 Evidence</h4>
-                {self._generate_evidence_section(vuln)}
-            </div>
-            
-            <!-- Impact Assessment -->
-            {self._generate_impact_assessment(vuln, severity)}
-            
-            <!-- Remediation -->
-            <div class="vuln-section">
-                <h4 class="vuln-section-title">🛠️ REMEDIATION GUIDANCE</h4>
-                {self._generate_detailed_remediation(vuln, severity)}
-            </div>
-            
-            <!-- Metadata -->
-            <div class="vuln-metadata">
-                <span><strong>Discovered:</strong> {vuln.get('discovered_at', 'N/A')}</span>
-                <span><strong>Reference ID:</strong> REV-{self._generate_vuln_id(vuln)}</span>
-            </div>
+    <div class="vulnerability-card {severity}">
+        {self._generate_vuln_header(idx, vuln, 'POTENTIAL VULNERABILITY')}
+        
+        <!-- Basic Information -->
+        <div class="vuln-section">
+            <h4 class="vuln-section-title">📋 Vulnerability Details</h4>
+            {self._generate_basic_info(vuln)}
         </div>
-        """
+        
+        <!-- Evidence -->
+        <div class="vuln-section">
+            <h4 class="vuln-section-title">🔍 Evidence</h4>
+            {self._generate_evidence_section(vuln)}
+        </div>
+        
+        <!-- Impact Assessment -->
+        {self._generate_impact_assessment(vuln, severity)}
+        
+        <!-- Remediation -->
+        <div class="vuln-section">
+            <h4 class="vuln-section-title">🛠️ REMEDIATION GUIDANCE</h4>
+            {self._generate_detailed_remediation(vuln, severity)}
+        </div>
+        
+        <!-- Metadata -->
+        <div class="vuln-metadata">
+            <span><strong>Discovered:</strong> {vuln.get('discovered_at', 'N/A')}</span>
+            <span><strong>Reference ID:</strong> REV-{self._generate_vuln_id(vuln)}</span>
+        </div>
+    </div>
+    """
     
     html += "</div>"
     return html
@@ -639,38 +771,38 @@ def _generate_vuln_header(self, index, vuln, badge_text):
     severity_info = self.severity_matrix[severity]
     
     return f"""
-    <div class="vuln-header">
-        <div class="vuln-title">
-            <span class="vuln-index">[{index}]</span>
-            {vuln.get('type', 'Unknown Vulnerability')}
-        </div>
-        <div class="vuln-badges">
-            <span class="exploit-badge">{badge_text}</span>
-            <span class="severity-badge {severity}">
-                {severity_info['icon']} {severity.upper()}
-            </span>
-        </div>
+<div class="vuln-header">
+    <div class="vuln-title">
+        <span class="vuln-index">[{index}]</span>
+        {vuln.get('type', 'Unknown Vulnerability')}
     </div>
-    """
+    <div class="vuln-badges">
+        <span class="exploit-badge">{badge_text}</span>
+        <span class="severity-badge {severity}">
+            {severity_info['icon']} {severity.upper()}
+        </span>
+    </div>
+</div>
+"""
 
 def _generate_basic_info(self, vuln):
     """Generate basic vulnerability information"""
     return f"""
-    <div class="info-grid">
-        <div class="info-item">
-            <strong>Target Endpoint:</strong>
-            <code>{vuln.get('url', vuln.get('endpoint', 'N/A'))}</code>
-        </div>
-        <div class="info-item">
-            <strong>Vulnerability Type:</strong>
-            <span class="vuln-type-badge">{vuln.get('type', 'Unknown')}</span>
-        </div>
-        <div class="info-item">
-            <strong>Description:</strong>
-            {vuln.get('description', 'No description available')}
-        </div>
+<div class="info-grid">
+    <div class="info-item">
+        <strong>Target Endpoint:</strong>
+        <code>{vuln.get('url', vuln.get('endpoint', 'N/A'))}</code>
     </div>
-    """
+    <div class="info-item">
+        <strong>Vulnerability Type:</strong>
+        <span class="vuln-type-badge">{vuln.get('type', 'Unknown')}</span>
+    </div>
+    <div class="info-item">
+        <strong>Description:</strong>
+        {vuln.get('description', 'No description available')}
+    </div>
+</div>
+"""
 
 def _generate_technical_evidence(self, bug):
     """Generate comprehensive technical evidence section"""
@@ -680,17 +812,17 @@ def _generate_technical_evidence(self, bug):
     http_evidence = self._generate_http_evidence(bug)
     
     return f"""
-    <div class="evidence-container">
-        <div class="evidence-item">
-            <strong>Finding:</strong>
-            <p>{evidence}</p>
-        </div>
-        
-        {http_evidence}
-        
-        {self._generate_reproduction_steps(bug)}
+<div class="evidence-container">
+    <div class="evidence-item">
+        <strong>Finding:</strong>
+        <p>{evidence}</p>
     </div>
-    """
+    
+    {http_evidence}
+    
+    {self._generate_reproduction_steps(bug)}
+</div>
+"""
 
 def _generate_http_evidence(self, vuln):
     """Generate HTTP request/response evidence"""
@@ -704,19 +836,19 @@ def _generate_http_evidence(self, vuln):
     
     if request:
         html += f"""
-        <div class="http-block">
-            <div class="http-label">📤 HTTP Request</div>
-            <div class="code-block">{self._escape_html(request)}</div>
-        </div>
-        """
+    <div class="http-block">
+        <div class="http-label">📤 HTTP Request</div>
+        <div class="code-block">{self._escape_html(request)}</div>
+    </div>
+    """
     
     if response:
         html += f"""
-        <div class="http-block">
-            <div class="http-label">📥 HTTP Response</div>
-            <div class="code-block">{self._escape_html(response)}</div>
-        </div>
-        """
+    <div class="http-block">
+        <div class="http-label">📥 HTTP Response</div>
+        <div class="code-block">{self._escape_html(response)}</div>
+    </div>
+    """
     
     html += '</div>'
     return html
@@ -729,18 +861,18 @@ def _generate_reproduction_steps(self, vuln):
         return ""
     
     html = """
-    <div class="reproduction-steps">
-        <div class="http-label">🔄 Reproduction Steps</div>
-        <ol class="steps-list">
-    """
+<div class="reproduction-steps">
+    <div class="http-label">🔄 Reproduction Steps</div>
+    <ol class="steps-list">
+"""
     
     for step in attack_path:
         html += f'<li>{step}</li>'
     
     html += """
-        </ol>
-    </div>
-    """
+    </ol>
+</div>
+"""
     return html
 
 def _generate_evidence_section(self, vuln):
@@ -748,11 +880,11 @@ def _generate_evidence_section(self, vuln):
     evidence = vuln.get('evidence', 'No evidence available')
     
     return f"""
-    <div class="evidence-container">
-        <p>{evidence}</p>
-        {self._generate_http_evidence(vuln)}
-    </div>
-    """
+<div class="evidence-container">
+    <p>{evidence}</p>
+    {self._generate_http_evidence(vuln)}
+</div>
+"""
 
 def _generate_poc_section(self, bug):
     """Generate proof of concept section"""
@@ -762,11 +894,11 @@ def _generate_poc_section(self, bug):
         return ""
     
     return f"""
-    <div class="vuln-section">
-        <h4 class="vuln-section-title">💣 Proof of Concept</h4>
-        <div class="code-block">{self._escape_html(poc)}</div>
-    </div>
-    """
+<div class="vuln-section">
+    <h4 class="vuln-section-title">💣 Proof of Concept</h4>
+    <div class="code-block">{self._escape_html(poc)}</div>
+</div>
+"""
 
 def _generate_impact_assessment(self, vuln, severity):
     """Generate detailed impact assessment"""
@@ -776,29 +908,29 @@ def _generate_impact_assessment(self, vuln, severity):
     impacts = self._determine_impacts(vuln)
     
     return f"""
-    <div class="vuln-section impact-section">
-        <h4 class="vuln-section-title">💥 Impact Assessment</h4>
-        <div class="impact-details">
-            <div class="impact-score">
-                <div class="impact-cvss">
-                    <strong>CVSS Score Range:</strong> {severity_info['cvss_range']}
-                </div>
-                <div class="impact-priority" style="background: {severity_info['color']};">
-                    {severity_info['priority']} PRIORITY
-                </div>
+<div class="vuln-section impact-section">
+    <h4 class="vuln-section-title">💥 Impact Assessment</h4>
+    <div class="impact-details">
+        <div class="impact-score">
+            <div class="impact-cvss">
+                <strong>CVSS Score Range:</strong> {severity_info['cvss_range']}
             </div>
-            <div class="impact-categories">
-                <strong>Potential Impact:</strong>
-                <ul>
-                    {impacts}
-                </ul>
-            </div>
-            <div class="impact-timeline">
-                <strong>Remediation SLA:</strong> {severity_info['sla']}
+            <div class="impact-priority" style="background: {severity_info['color']};">
+                {severity_info['priority']} PRIORITY
             </div>
         </div>
+        <div class="impact-categories">
+            <strong>Potential Impact:</strong>
+            <ul>
+                {impacts}
+            </ul>
+        </div>
+        <div class="impact-timeline">
+            <strong>Remediation SLA:</strong> {severity_info['sla']}
+        </div>
     </div>
-    """
+</div>
+"""
 
 def _determine_impacts(self, vuln):
     """Determine potential impacts based on vulnerability type"""
@@ -819,12 +951,68 @@ def _determine_impacts(self, vuln):
             'Phishing attacks',
             'Malware distribution'
         ]
+    elif 'ssrf' in vuln_type or 'server-side request forgery' in vuln_type:
+        impacts = [
+            'Internal network scanning',
+            'Cloud metadata access (AWS/GCP/Azure)',
+            'Port scanning and service discovery',
+            'Bypass of network segmentation'
+        ]
     elif 'idor' in vuln_type or 'broken access' in vuln_type:
         impacts = [
             'Unauthorized data access',
             'Privacy violations',
             'Account takeover potential',
             'Compliance violations (GDPR/CCPA)'
+        ]
+    elif 'file upload' in vuln_type:
+        impacts = [
+            'Remote code execution',
+            'Web shell deployment',
+            'Server compromise',
+            'Complete system takeover'
+        ]
+    elif 'xxe' in vuln_type or 'xml external entity' in vuln_type:
+        impacts = [
+            'File disclosure',
+            'Internal network scanning',
+            'Denial of service',
+            'Server-side request forgery'
+        ]
+    elif 'session' in vuln_type:
+        impacts = [
+            'Session hijacking',
+            'Account takeover',
+            'Privilege escalation',
+            'Authentication bypass'
+        ]
+    elif 'cors' in vuln_type:
+        impacts = [
+            'Cross-origin data theft',
+            'API credential exposure',
+            'Sensitive data leakage',
+            'Authentication bypass'
+        ]
+    elif 'csrf' in vuln_type:
+        impacts = [
+            'Unauthorized actions on behalf of user',
+            'Account modification',
+            'Financial transaction manipulation',
+            'Privilege escalation'
+        ]
+    elif 'dependency' in vuln_type or 'vulnerable component' in vuln_type:
+        impacts = [
+            'Known CVE exploitation',
+            'Remote code execution',
+            'Data breach through library flaws',
+            'Supply chain compromise'
+        ]
+    elif 'business logic' in vuln_type:
+        impacts = [
+            'Business rule bypass',
+            'Financial loss',
+            'Inventory manipulation',
+            'Fraudulent transactions'
         ]
     elif 'race condition' in vuln_type:
         impacts = [
@@ -877,53 +1065,53 @@ def _generate_detailed_remediation(self, vuln, severity):
     severity_info = self.severity_matrix[severity]
     
     html = f"""
-    <div class="remediation-container">
-        <div class="remediation-priority" style="border-left-color: {severity_info['color']};">
-            <strong>⏰ Priority Level:</strong> {severity_info['priority']} 
-            <span class="remediation-sla">(Fix within {severity_info['sla']})</span>
-        </div>
-        
-        <div class="remediation-steps">
-            <strong>🔧 Immediate Actions:</strong>
-            <ol>
-                {remediation_steps}
-            </ol>
-        </div>
-    """
+<div class="remediation-container">
+    <div class="remediation-priority" style="border-left-color: {severity_info['color']};">
+        <strong>⏰ Priority Level:</strong> {severity_info['priority']} 
+        <span class="remediation-sla">(Fix within {severity_info['sla']})</span>
+    </div>
+    
+    <div class="remediation-steps">
+        <strong>🔧 Immediate Actions:</strong>
+        <ol>
+            {remediation_steps}
+        </ol>
+    </div>
+"""
     
     if custom_remediation:
         html += """
-        <div class="remediation-specific">
-            <strong>📝 Specific Recommendations:</strong>
-            <ul>
-        """
+    <div class="remediation-specific">
+        <strong>📝 Specific Recommendations:</strong>
+        <ul>
+    """
         for rec in custom_remediation:
             html += f'<li>{rec}</li>'
         html += """
-            </ul>
-        </div>
-        """
+        </ul>
+    </div>
+    """
     
     # Add validation steps
     html += """
-        <div class="remediation-validation">
-            <strong>✅ Validation Steps:</strong>
-            <ol>
-                <li>Apply the recommended fixes in a development environment</li>
-                <li>Perform regression testing to ensure functionality</li>
-                <li>Conduct security testing to verify the fix</li>
-                <li>Deploy to production during low-traffic period</li>
-                <li>Monitor logs for any anomalies post-deployment</li>
-                <li>Schedule re-scan to confirm vulnerability resolution</li>
-            </ol>
-        </div>
+    <div class="remediation-validation">
+        <strong>✅ Validation Steps:</strong>
+        <ol>
+            <li>Apply the recommended fixes in a development environment</li>
+            <li>Perform regression testing to ensure functionality</li>
+            <li>Conduct security testing to verify the fix</li>
+            <li>Deploy to production during low-traffic period</li>
+            <li>Monitor logs for any anomalies post-deployment</li>
+            <li>Schedule re-scan to confirm vulnerability resolution</li>
+        </ol>
     </div>
-    """
+</div>
+"""
     
     return html
 
 def _get_remediation_steps(self, vuln_type):
-    """Get specific remediation steps based on vulnerability type"""
+    """Get specific remediation steps based on vulnerability type - ENHANCED v2.0"""
     remediation_map = {
         'sql injection': """
             <li>Implement parameterized queries (prepared statements) for all database operations</li>
@@ -941,6 +1129,15 @@ def _get_remediation_steps(self, vuln_type):
             <li>Implement strict input validation with whitelist approach</li>
             <li>Regular XSS scanning and penetration testing</li>
         """,
+        'ssrf': """
+            <li>Validate and sanitize all URL inputs with strict whitelist</li>
+            <li>Block access to private IP ranges (RFC1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)</li>
+            <li>Block cloud metadata endpoints (169.254.169.254, metadata.google.internal)</li>
+            <li>Implement network segmentation and egress filtering</li>
+            <li>Use URL parsing libraries to prevent URL confusion attacks</li>
+            <li>Disable unnecessary URL schemes (file://, gopher://, dict://)</li>
+            <li>Monitor and log all outbound HTTP requests with alerting</li>
+        """,
         'idor': """
             <li>Implement indirect object references (mapping IDs internally)</li>
             <li>Add authorization checks before every data access operation</li>
@@ -949,37 +1146,106 @@ def _get_remediation_steps(self, vuln_type):
             <li>Log all access attempts with user context for auditing</li>
             <li>Regular access control testing and review</li>
         """,
+        'business logic': """
+            <li>Implement server-side validation for all business rules</li>
+            <li>Never trust client-side data for critical operations</li>
+            <li>Use database transactions with proper isolation levels (SERIALIZABLE)</li>
+            <li>Implement rate limiting and request throttling per user/IP</li>
+            <li>Add comprehensive logging for financial transactions</li>
+            <li>Implement fraud detection algorithms for anomaly detection</li>
+            <li>Regular business logic security reviews and threat modeling</li>
+        """,
+        'file upload': """
+            <li>Validate file extensions using whitelist approach (not blacklist)</li>
+            <li>Check file content (magic bytes) not just extension</li>
+            <li>Rename uploaded files to prevent directory traversal (use UUID)</li>
+            <li>Store uploads outside webroot or in object storage (S3, GCS)</li>
+            <li>Disable script execution in upload directories (.htaccess, web.config)</li>
+            <li>Implement file size limits (enforce server-side)</li>
+            <li>Scan all uploads with antivirus/malware detection</li>
+            <li>Set Content-Disposition: attachment for downloads</li>
+        """,
+        'xxe': """
+            <li>Disable XML external entity processing in all XML parsers</li>
+            <li>Disable DTD processing entirely if not required</li>
+            <li>Use JSON instead of XML when possible</li>
+            <li>Update XML processing libraries to latest secure versions</li>
+            <li>Implement input validation for XML data</li>
+            <li>Use less complex data formats (JSON, YAML with safe loaders)</li>
+            <li>Regular security audits of XML processing code</li>
+        """,
+        'session': """
+            <li>Generate cryptographically random session tokens (128+ bits entropy)</li>
+            <li>Implement proper session timeout (idle: 15min, absolute: 8hrs)</li>
+            <li>Regenerate session IDs after authentication and privilege changes</li>
+            <li>Use secure session storage (server-side, encrypted at rest)</li>
+            <li>Enable HTTPOnly, Secure, and SameSite=Strict cookie flags</li>
+            <li>Implement concurrent session limits per user (1-3 sessions)</li>
+            <li>Invalidate sessions on logout (server-side)</li>
+            <li>Regular session management security audits</li>
+        """,
+        'cors': """
+            <li>Configure CORS with strict origin whitelist (never use "*")</li>
+            <li>Never use wildcard (*) with Access-Control-Allow-Credentials: true</li>
+            <li>Validate Origin header server-side against whitelist</li>
+            <li>Implement proper preflight (OPTIONS) request handling</li>
+            <li>Use credentials: 'include' only when absolutely necessary</li>
+            <li>Avoid reflecting Origin header in Access-Control-Allow-Origin</li>
+            <li>Regular CORS configuration audits and security reviews</li>
+        """,
+        'csrf': """
+            <li>Implement CSRF tokens for all state-changing operations (POST, PUT, DELETE)</li>
+            <li>Use SameSite cookie attribute (Strict or Lax)</li>
+            <li>Validate Referer/Origin headers as defense-in-depth</li>
+            <li>Implement double-submit cookie pattern for stateless systems</li>
+            <li>Use framework-provided CSRF protection (Django, Rails, etc.)</li>
+            <li>Require re-authentication for sensitive operations</li>
+            <li>Regular CSRF testing on all forms and AJAX requests</li>
+        """,
+        'dependency': """
+            <li>Update all dependencies to latest secure versions immediately</li>
+            <li>Implement automated dependency scanning in CI/CD pipeline (Snyk, Dependabot)</li>
+            <li>Subscribe to security advisories for used libraries (GitHub Security, NVD)</li>
+            <li>Remove unused dependencies to reduce attack surface</li>
+            <li>Pin dependency versions and use lock files (package-lock.json, Gemfile.lock)</li>
+            <li>Use Software Composition Analysis (SCA) tools regularly</li>
+            <li>Monitor for zero-day vulnerabilities in production dependencies</li>
+        """,
         'race condition': """
             <li>Implement database-level locking (pessimistic or optimistic)</li>
-            <li>Use atomic operations for critical business logic</li>
+            <li>Use atomic operations for critical business logic (ACID transactions)</li>
             <li>Implement idempotency keys for sensitive transactions</li>
-            <li>Add rate limiting on critical endpoints</li>
+            <li>Add rate limiting on critical endpoints (1 req/sec per user)</li>
             <li>Use distributed locks (Redis/Memcached) for multi-server setups</li>
             <li>Implement request deduplication mechanisms</li>
+            <li>Use database constraints to enforce business rules</li>
         """,
         'price manipulation': """
             <li>Implement server-side price validation before checkout</li>
             <li>Never trust client-side pricing data</li>
-            <li>Use cryptographic signatures for price data integrity</li>
+            <li>Use cryptographic signatures (HMAC) for price data integrity</li>
+            <li>Store prices in backend database, not in client requests</li>
             <li>Implement real-time fraud detection algorithms</li>
-            <li>Add transaction logging and monitoring</li>
+            <li>Add transaction logging and monitoring with anomaly detection</li>
             <li>Regular financial reconciliation and audits</li>
         """,
         'graphql': """
             <li>Disable GraphQL introspection in production environments</li>
-            <li>Implement query depth limiting and complexity analysis</li>
+            <li>Implement query depth limiting (max depth: 5-7)</li>
+            <li>Implement query complexity analysis and cost limits</li>
             <li>Add field-level authorization checks</li>
-            <li>Implement query cost analysis and rate limiting</li>
+            <li>Implement query cost analysis and rate limiting per user</li>
             <li>Use persisted queries to prevent arbitrary query execution</li>
             <li>Regular schema review and access control audits</li>
         """,
         'jwt': """
             <li>Use strong signing algorithms (RS256 instead of HS256 for public systems)</li>
-            <li>Implement proper key management and rotation</li>
-            <li>Set appropriate token expiration times (short-lived tokens)</li>
-            <li>Validate all JWT claims (iss, aud, exp, nbf)</li>
-            <li>Implement token revocation mechanism</li>
-            <li>Never store sensitive data in JWT payload</li>
+            <li>Implement proper key management and regular rotation</li>
+            <li>Set appropriate token expiration times (access: 15min, refresh: 7 days)</li>
+            <li>Validate all JWT claims (iss, aud, exp, nbf, iat)</li>
+            <li>Implement token revocation mechanism (blacklist or whitelist)</li>
+            <li>Never store sensitive data in JWT payload (it's base64, not encrypted)</li>
+            <li>Implement token binding to prevent token theft</li>
         """
     }
     
@@ -1001,25 +1267,25 @@ def _get_remediation_steps(self, vuln_type):
 def _generate_reconnaissance_section(self, recon_data):
     """Generate reconnaissance section"""
     html = """
-    <div class="section">
-        <h2 class="section-title">🔎 RECONNAISSANCE RESULTS</h2>
-        <p class="section-description">
-            Discovery phase results showing the attack surface mapped during the assessment.
-        </p>
-        
-        <h3 style="margin: 30px 0 20px 0; color: #1e3c72;">🌐 Discovered Subdomains</h3>
-        <div class="subdomain-list">
-    """
+<div class="section">
+    <h2 class="section-title">🔎 RECONNAISSANCE RESULTS</h2>
+    <p class="section-description">
+        Discovery phase results showing the attack surface mapped during the assessment.
+    </p>
+    
+    <h3 style="margin: 30px 0 20px 0; color: #1e3c72;">🌐 Discovered Subdomains</h3>
+    <div class="subdomain-list">
+"""
     
     for subdomain in recon_data.get('subdomains', []):
         tech = recon_data.get('technologies', {}).get(subdomain, {})
         technologies = tech.get('technologies', [])
         
         html += f"""
-        <div class="subdomain-item">
-            <div class="domain">🌐 {subdomain}</div>
-            <div class="tech">
-        """
+    <div class="subdomain-item">
+        <div class="domain">🌐 {subdomain}</div>
+        <div class="tech">
+    """
         
         if technologies:
             for t in technologies[:5]:
@@ -1028,14 +1294,14 @@ def _generate_reconnaissance_section(self, recon_data):
             html += '<span class="tech-badge">Unknown Stack</span>'
         
         html += """
-            </div>
-        </div>
-        """
-    
-    html += """
         </div>
     </div>
     """
+    
+    html += """
+    </div>
+</div>
+"""
     return html
 
 def _generate_remediation_roadmap(self, data):
@@ -1050,52 +1316,52 @@ def _generate_remediation_roadmap(self, data):
     low_items = [v for v in vulnerabilities + confirmed_bugs if v.get('severity', '').lower() == 'low']
     
     return f"""
-    <div class="section remediation-roadmap">
-        <h2 class="section-title">🗓️ REMEDIATION ROADMAP</h2>
-        <p class="section-description">
-            Prioritized action plan for addressing identified security issues.
-        </p>
-        
-        <div class="roadmap-timeline">
-            {self._generate_roadmap_phase('Phase 1: Critical Fixes (24-48 hours)', critical_items, 'critical')}
-            {self._generate_roadmap_phase('Phase 2: High Priority (1-2 weeks)', high_items, 'high')}
-            {self._generate_roadmap_phase('Phase 3: Medium Priority (1 month)', medium_items, 'medium')}
-            {self._generate_roadmap_phase('Phase 4: Low Priority (3 months)', low_items, 'low')}
-        </div>
-        
-        <div class="roadmap-summary">
-            <h3>📊 Remediation Summary</h3>
-            <ul>
-                <li><strong>Total Items:</strong> {len(critical_items + high_items + medium_items + low_items)}</li>
-                <li><strong>Immediate Action Required:</strong> {len(critical_items)} critical issues</li>
-                <li><strong>Short-term Focus:</strong> {len(high_items)} high-severity issues</li>
-                <li><strong>Estimated Timeline:</strong> {self._calculate_total_timeline(critical_items, high_items, medium_items, low_items)}</li>
-            </ul>
-        </div>
+<div class="section remediation-roadmap">
+    <h2 class="section-title">🗓️ REMEDIATION ROADMAP</h2>
+    <p class="section-description">
+        Prioritized action plan for addressing identified security issues.
+    </p>
+    
+    <div class="roadmap-timeline">
+        {self._generate_roadmap_phase('Phase 1: Critical Fixes (24-48 hours)', critical_items, 'critical')}
+        {self._generate_roadmap_phase('Phase 2: High Priority (1-2 weeks)', high_items, 'high')}
+        {self._generate_roadmap_phase('Phase 3: Medium Priority (1 month)', medium_items, 'medium')}
+        {self._generate_roadmap_phase('Phase 4: Low Priority (3 months)', low_items, 'low')}
     </div>
-    """
+    
+    <div class="roadmap-summary">
+        <h3>📊 Remediation Summary</h3>
+        <ul>
+            <li><strong>Total Items:</strong> {len(critical_items + high_items + medium_items + low_items)}</li>
+            <li><strong>Immediate Action Required:</strong> {len(critical_items)} critical issues</li>
+            <li><strong>Short-term Focus:</strong> {len(high_items)} high-severity issues</li>
+            <li><strong>Estimated Timeline:</strong> {self._calculate_total_timeline(critical_items, high_items, medium_items, low_items)}</li>
+        </ul>
+    </div>
+</div>
+"""
 
 def _generate_roadmap_phase(self, phase_name, items, severity):
     """Generate individual roadmap phase"""
     if not items:
         return f"""
-        <div class="roadmap-phase {severity}">
-            <div class="phase-header">
-                <h3>{phase_name}</h3>
-                <span class="phase-count">0 items</span>
-            </div>
-            <p class="phase-empty">✅ No issues in this category</p>
-        </div>
-        """
-    
-    html = f"""
     <div class="roadmap-phase {severity}">
         <div class="phase-header">
             <h3>{phase_name}</h3>
-            <span class="phase-count">{len(items)} items</span>
+            <span class="phase-count">0 items</span>
         </div>
-        <ul class="phase-items">
+        <p class="phase-empty">✅ No issues in this category</p>
+    </div>
     """
+    
+    html = f"""
+<div class="roadmap-phase {severity}">
+    <div class="phase-header">
+        <h3>{phase_name}</h3>
+        <span class="phase-count">{len(items)} items</span>
+    </div>
+    <ul class="phase-items">
+"""
     
     for item in items:
         vuln_type = item.get('type', 'Unknown')
@@ -1103,9 +1369,9 @@ def _generate_roadmap_phase(self, phase_name, items, severity):
         html += f'<li><strong>{vuln_type}</strong> - {endpoint}</li>'
     
     html += """
-        </ul>
-    </div>
-    """
+    </ul>
+</div>
+"""
     return html
 
 def _calculate_total_timeline(self, critical, high, medium, low):
@@ -1124,20 +1390,21 @@ def _calculate_total_timeline(self, critical, high, medium, low):
 def _generate_footer(self):
     """Generate report footer"""
     return f"""
-    <div class="footer">
-        <p><strong>REVUEX Vulnerability Suite</strong> - Professional Security Assessment Platform</p>
-        <p>Report generated on {datetime.now().strftime('%B %d, %Y at %H:%M:%S')}</p>
-        <p>Security Researcher: G33L0 | Contact: <a href="https://t.me/x0x0h33l0">@x0x0h33l0</a></p>
-        <p style="margin-top: 20px; font-size: 0.9em; opacity: 0.8;">
-            ⚠️ <strong>CONFIDENTIAL:</strong> This report contains sensitive security information.
-            Distribution should be limited to authorized personnel only.
-        </p>
-        <p style="font-size: 0.85em; opacity: 0.7; margin-top: 10px;">
-            <strong>Disclaimer:</strong> This assessment was performed using automated tools.
-            Manual verification and penetration testing are recommended to confirm findings.
-        </p>
-    </div>
-    """
+<div class="footer">
+    <p><strong>REVUEX Vulnerability Suite v2.0</strong> - Professional Security Assessment Platform</p>
+    <p>Report generated on {datetime.now().strftime('%B %d, %Y at %H:%M:%S')}</p>
+    <p>Security Researcher: G33L0 | Contact: <a href="https://t.me/x0x0h33l0">@x0x0h33l0</a></p>
+    <p>GitHub: <a href="https://github.com/G33L0/revuex-vul-suite">github.com/G33L0/revuex-vul-suite</a></p>
+    <p style="margin-top: 20px; font-size: 0.9em; opacity: 0.8;">
+        ⚠️ <strong>CONFIDENTIAL:</strong> This report contains sensitive security information.
+        Distribution should be limited to authorized personnel only.
+    </p>
+    <p style="font-size: 0.85em; opacity: 0.7; margin-top: 10px;">
+        <strong>Disclaimer:</strong> This assessment was performed using automated tools.
+        Manual verification and penetration testing are recommended to confirm findings.
+    </p>
+</div>
+"""
 
 def _generate_vuln_id(self, vuln):
     """Generate unique vulnerability reference ID"""
@@ -1156,932 +1423,960 @@ def _escape_html(self, text):
             .replace("'", '&#x27;'))
 
 def _get_enhanced_css(self):
-    """Get enhanced CSS for professional report"""
+    """Get enhanced CSS for professional report - v2.0"""
     return """
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-    
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    color: #333;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+
+.header {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: white;
+    padding: 50px 40px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 3.5em;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 3px;
+}
+
+.header .subtitle {
+    font-size: 1.3em;
+    opacity: 0.9;
+    margin-bottom: 15px;
+}
+
+.header .target-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 10px 30px;
+    border-radius: 25px;
+    font-size: 1.1em;
+    margin: 15px 0;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+.header .author {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.3);
+    font-size: 0.95em;
+}
+
+/* NEW v2.0: Version Badge */
+.version-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 30px;
+    text-align: center;
+    font-size: 1.05em;
+    margin: 0;
+    border-bottom: 3px solid #1e3c72;
+}
+
+/* Executive Summary Styles */
+.executive-summary {
+    background: #f8f9fa;
+}
+
+.exec-box {
+    background: white;
+    padding: 25px;
+    margin: 20px 0;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.exec-box h3 {
+    color: #1e3c72;
+    margin-bottom: 15px;
+    font-size: 1.4em;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.exec-text {
+    font-size: 1.05em;
+    line-height: 1.8;
+    color: #555;
+}
+
+.risk-score-container {
+    text-align: center;
+    margin: 30px 0;
+}
+
+.risk-score {
+    display: inline-block;
+    background: white;
+    padding: 30px 50px;
+    border-radius: 15px;
+    border: 4px solid;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+.risk-number {
+    font-size: 4em;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.risk-label {
+    color: white;
+    padding: 10px 25px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.critical-findings {
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
+    border-left: 5px solid #dc3545;
+}
+
+.finding-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.finding-item {
+    text-align: center;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.finding-number {
+    font-size: 2.5em;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.finding-label {
+    color: #666;
+    font-size: 0.9em;
+    text-transform: uppercase;
+}
+
+.impact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.impact-item {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #ffc107;
+    font-size: 0.95em;
+}
+
+.no-impact {
+    color: #28a745;
+    font-size: 1.1em;
+    padding: 15px;
+    background: #d4edda;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.compliance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.compliance-item {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #fd7e14;
+    text-align: center;
+    font-weight: bold;
+}
+
+.compliance-note {
+    margin-top: 15px;
+    font-size: 0.9em;
+    color: #666;
+    font-style: italic;
+}
+
+.action-timeline {
+    margin-top: 20px;
+}
+
+.action-item {
+    margin: 15px 0;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 5px solid;
+}
+
+.action-item.immediate {
+    background: #fff5f5;
+    border-left-color: #dc3545;
+}
+
+.action-item.urgent {
+    background: #fff8f0;
+    border-left-color: #fd7e14;
+}
+
+.action-item.moderate {
+    background: #fffbf0;
+    border-left-color: #ffc107;
+}
+
+.action-item.low-priority {
+    background: #f0fff4;
+    border-left-color: #28a745;
+}
+
+.action-header {
+    margin-bottom: 10px;
+}
+
+.action-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.action-badge.critical { background: #dc3545; }
+.action-badge.high { background: #fd7e14; }
+.action-badge.medium { background: #ffc107; color: #333; }
+.action-badge.low { background: #28a745; }
+
+.action-content {
+    margin-top: 10px;
+    line-height: 1.6;
+}
+
+.timeline-summary {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e9ecef;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.key-recommendations {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-left: 5px solid #28a745;
+}
+
+.recommendations-list {
+    margin-top: 15px;
+    margin-left: 25px;
+}
+
+.recommendations-list li {
+    margin: 12px 0;
+    line-height: 1.6;
+}
+
+/* Summary Cards */
+.summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 40px;
+    background: #f8f9fa;
+}
+
+.summary-card {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.3s;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.summary-card .number {
+    font-size: 3em;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.summary-card .label {
+    color: #666;
+    font-size: 0.9em;
+    text-transform: uppercase;
+}
+
+/* Severity Colors */
+.critical { color: #dc3545; }
+.high { color: #fd7e14; }
+.medium { color: #ffc107; }
+.low { color: #28a745; }
+.info { color: #17a2b8; }
+
+/* Severity Breakdown */
+.severity-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.severity-card {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    border-left: 5px solid;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.severity-card.critical {
+    border-left-color: #dc3545;
+    background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+}
+
+.severity-card.high {
+    border-left-color: #fd7e14;
+    background: linear-gradient(135deg, #fff 0%, #fff8f0 100%);
+}
+
+.severity-card.medium {
+    border-left-color: #ffc107;
+    background: linear-gradient(135deg, #fff 0%, #fffbf0 100%);
+}
+
+.severity-card.low {
+    border-left-color: #28a745;
+    background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
+}
+
+.severity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.severity-icon {
+    font-size: 2em;
+}
+
+.severity-name {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+.severity-count {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+.severity-info {
+    margin-top: 15px;
+}
+
+.severity-info div {
+    margin: 8px 0;
+    font-size: 0.9em;
+}
+
+/* Section Styles */
+.section {
+    padding: 40px;
+}
+
+.section-title {
+    font-size: 2em;
+    margin-bottom: 15px;
+    color: #1e3c72;
+    border-bottom: 3px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.section-description {
+    font-size: 1.05em;
+    color: #666;
+    margin-bottom: 25px;
+    line-height: 1.6;
+}
+
+.no-findings {
+    text-align: center;
+    padding: 60px 20px;
+    background: #f8f9fa;
+    border-radius: 15px;
+}
+
+.success-icon {
+    font-size: 5em;
+    margin-bottom: 20px;
+}
+
+/* Vulnerability Card Styles */
+.vulnerability-card {
+    background: white;
+    border-left: 5px solid #667eea;
+    padding: 30px;
+    margin-bottom: 25px;
+    border-radius: 12px;
+    box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+}
+
+.vulnerability-card.critical {
+    border-left-color: #dc3545;
+    background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+}
+
+.vulnerability-card.high {
+    border-left-color: #fd7e14;
+    background: linear-gradient(135deg, #fff 0%, #fff8f0 100%);
+}
+
+.vulnerability-card.medium {
+    border-left-color: #ffc107;
+    background: linear-gradient(135deg, #fff 0%, #fffbf0 100%);
+}
+
+.vulnerability-card.low {
+    border-left-color: #28a745;
+    background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
+}
+
+.vuln-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.vuln-title {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #1e3c72;
+    flex: 1;
+}
+
+.vuln-index {
+    color: #667eea;
+    margin-right: 10px;
+}
+
+.vuln-badges {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.exploit-badge {
+    background: #dc3545;
+    color: white;
+    padding: 6px 15px;
+    border-radius: 15px;
+    font-size: 0.75em;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.severity-badge {
+    padding: 8px 20px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    font-size: 0.85em;
+    text-transform: uppercase;
+}
+
+.severity-badge.critical { background: #dc3545; }
+.severity-badge.high { background: #fd7e14; }
+.severity-badge.medium { background: #ffc107; color: #333; }
+.severity-badge.low { background: #28a745; }
+
+.vuln-section {
+    margin: 25px 0;
+    padding: 20px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+}
+
+.vuln-section-title {
+    color: #1e3c72;
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.info-grid {
+    display: grid;
+    gap: 15px;
+}
+
+.info-item {
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+}
+
+.info-item strong {
+    color: #1e3c72;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.info-item code {
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: #dc3545;
+    word-break: break-all;
+}
+
+.vuln-type-badge {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.9em;
+}
+
+/* Evidence Styles */
+.evidence-container {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.evidence-item {
+    margin: 15px 0;
+}
+
+.evidence-item strong {
+    color: #1e3c72;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.http-evidence {
+    margin: 20px 0;
+}
+
+.http-block {
+    margin: 15px 0;
+}
+
+.http-label {
+    background: #667eea;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 6px 6px 0 0;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.code-block {
+    background: #2d2d2d;
+    color: #f8f8f2;
+    padding: 20px;
+    border-radius: 0 0 8px 8px;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.reproduction-steps {
+    margin: 20px 0;
+}
+
+.steps-list {
+    margin-left: 25px;
+    margin-top: 10px;
+}
+
+.steps-list li {
+    margin: 10px 0;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    line-height: 1.6;
+}
+
+/* Impact Section */
+.impact-section {
+    background: linear-gradient(135deg, #fff8f0 0%, #ffe5cc 100%);
+    border-left: 4px solid #fd7e14;
+}
+
+.impact-details {
+    margin-top: 15px;
+}
+
+.impact-score {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.impact-cvss {
+    font-size: 1.1em;
+}
+
+.impact-priority {
+    padding: 10px 25px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+}
+
+.impact-categories {
+    margin: 15px 0;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+}
+
+.impact-categories ul {
+    margin-left: 25px;
+    margin-top: 10px;
+}
+
+.impact-categories li {
+    margin: 8px 0;
+    line-height: 1.5;
+}
+
+.impact-timeline {
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.05em;
+}
+
+/* Remediation Styles */
+.remediation-container {
+    background: #d4edda;
+    padding: 25px;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+}
+
+.remediation-priority {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid;
+}
+
+.remediation-sla {
+    color: #666;
+    font-weight: normal;
+}
+
+.remediation-steps {
+    margin: 15px 0;
+}
+
+.remediation-steps ol {
+    margin-left: 25px;
+    margin-top: 10px;
+}
+
+.remediation-steps li {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.remediation-specific {
+    margin: 15px 0;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+}
+
+.remediation-specific ul {
+    margin-left: 25px;
+    margin-top: 10px;
+}
+
+.remediation-specific li {
+    margin: 8px 0;
+    line-height: 1.5;
+}
+
+.remediation-validation {
+    margin-top: 15px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+}
+
+.remediation-validation ol {
+    margin-left: 25px;
+    margin-top: 10px;
+}
+
+.remediation-validation li {
+    margin: 8px 0;
+    line-height: 1.5;
+}
+
+/* Metadata */
+.vuln-metadata {
+    display: flex;
+    gap: 30px;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 2px solid #f0f0f0;
+    font-size: 0.9em;
+    color: #666;
+    flex-wrap: wrap;
+}
+
+.vuln-metadata strong {
+    color: #1e3c72;
+}
+
+/* Subdomain List */
+.subdomain-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+.subdomain-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 3px solid #667eea;
+    transition: transform 0.2s;
+}
+
+.subdomain-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.subdomain-item .domain {
+    font-weight: bold;
+    color: #1e3c72;
+    margin-bottom: 8px;
+    word-break: break-all;
+}
+
+.subdomain-item .tech {
+    font-size: 0.85em;
+    color: #666;
+}
+
+.tech-badge {
+    display: inline-block;
+    background: #e9ecef;
+    padding: 4px 12px;
+    border-radius: 12px;
+    margin: 3px;
+    font-size: 0.85em;
+}
+
+/* Remediation Roadmap */
+.remediation-roadmap {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.roadmap-timeline {
+    margin-top: 30px;
+}
+
+.roadmap-phase {
+    margin: 20px 0;
+    padding: 25px;
+    background: white;
+    border-radius: 12px;
+    border-left: 5px solid;
+}
+
+.roadmap-phase.critical { border-left-color: #dc3545; }
+.roadmap-phase.high { border-left-color: #fd7e14; }
+.roadmap-phase.medium { border-left-color: #ffc107; }
+.roadmap-phase.low { border-left-color: #28a745; }
+
+.phase-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.phase-header h3 {
+    color: #1e3c72;
+    font-size: 1.3em;
+}
+
+.phase-count {
+    background: #667eea;
+    color: white;
+    padding: 6px 15px;
+    border-radius: 15px;
+    font-weight: bold;
+}
+
+.phase-empty {
+    color: #28a745;
+    text-align: center;
+    padding: 20px;
+    font-size: 1.1em;
+}
+
+.phase-items {
+    margin-left: 25px;
+}
+
+.phase-items li {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.roadmap-summary {
+    margin-top: 30px;
+    padding: 25px;
+    background: white;
+    border-radius: 12px;
+    border-left: 5px solid #667eea;
+}
+
+.roadmap-summary h3 {
+    color: #1e3c72;
+    margin-bottom: 15px;
+}
+
+.roadmap-summary ul {
+    margin-left: 25px;
+}
+
+.roadmap-summary li {
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+/* Footer */
+.footer {
+    background: #1e3c72;
+    color: white;
+    padding: 40px;
+    text-align: center;
+}
+
+.footer p {
+    margin: 10px 0;
+}
+
+.footer a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+    color: #764ba2;
+}
+
+/* Print Styles */
+@media print {
     body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
-        color: #333;
-        line-height: 1.6;
+        background: white;
     }
-    
     .container {
-        max-width: 1200px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        overflow: hidden;
+        box-shadow: none;
     }
-    
-    .header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        color: white;
-        padding: 50px 40px;
-        text-align: center;
+    .vulnerability-card {
+        page-break-inside: avoid;
     }
-    
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
     .header h1 {
-        font-size: 3.5em;
-        margin-bottom: 10px;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        font-family: 'Courier New', monospace;
-        letter-spacing: 3px;
+        font-size: 2em;
     }
     
-    .header .subtitle {
-        font-size: 1.3em;
-        opacity: 0.9;
-        margin-bottom: 15px;
+    .summary {
+        grid-template-columns: 1fr;
     }
     
-    .header .target-badge {
-        display: inline-block;
-        background: rgba(255,255,255,0.2);
-        padding: 10px 30px;
-        border-radius: 25px;
-        font-size: 1.1em;
-        margin: 15px 0;
-        border: 2px solid rgba(255,255,255,0.3);
-    }
-    
-    .header .author {
-        margin-top: 20px;
-        padding-top: 20px;
-        border-top: 1px solid rgba(255,255,255,0.3);
-        font-size: 0.95em;
-    }
-    
-    /* Executive Summary Styles */
-    .executive-summary {
-        background: #f8f9fa;
-    }
-    
-    .exec-box {
-        background: white;
-        padding: 25px;
-        margin: 20px 0;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    .exec-box h3 {
-        color: #1e3c72;
-        margin-bottom: 15px;
-        font-size: 1.4em;
-        border-bottom: 2px solid #667eea;
-        padding-bottom: 10px;
-    }
-    
-    .exec-text {
-        font-size: 1.05em;
-        line-height: 1.8;
-        color: #555;
-    }
-    
-    .risk-score-container {
-        text-align: center;
-        margin: 30px 0;
-    }
-    
-    .risk-score {
-        display: inline-block;
-        background: white;
-        padding: 30px 50px;
-        border-radius: 15px;
-        border: 4px solid;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-    }
-    
-    .risk-number {
-        font-size: 4em;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-    
-    .risk-label {
-        color: white;
-        padding: 10px 25px;
-        border-radius: 20px;
-        font-weight: bold;
-        font-size: 1.1em;
-    }
-    
-    .critical-findings {
-        background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%);
-        border-left: 5px solid #dc3545;
+    .severity-details {
+        grid-template-columns: 1fr;
     }
     
     .finding-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-        margin-top: 20px;
+        grid-template-columns: 1fr;
     }
     
-    .finding-item {
-        text-align: center;
-        padding: 20px;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    .finding-number {
-        font-size: 2.5em;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-    
-    .finding-label {
-        color: #666;
-        font-size: 0.9em;
-        text-transform: uppercase;
-    }
-    
-    .impact-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 15px;
-        margin-top: 15px;
-    }
-    
-    .impact-item {
-        background: #fff3cd;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #ffc107;
-        font-size: 0.95em;
-    }
-    
-    .no-impact {
-        color: #28a745;
-        font-size: 1.1em;
-        padding: 15px;
-        background: #d4edda;
-        border-radius: 8px;
-        margin-top: 10px;
-    }
-    
-    .compliance-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 15px;
-        margin-top: 15px;
-    }
-    
-    .compliance-item {
-        background: #fff3cd;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #fd7e14;
-        text-align: center;
-        font-weight: bold;
-    }
-    
-    .compliance-note {
-        margin-top: 15px;
-        font-size: 0.9em;
-        color: #666;
-        font-style: italic;
-    }
-    
-    .action-timeline {
-        margin-top: 20px;
-    }
-    
-    .action-item {
-        margin: 15px 0;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid;
-    }
-    
-    .action-item.immediate {
-        background: #fff5f5;
-        border-left-color: #dc3545;
-    }
-    
-    .action-item.urgent {
-        background: #fff8f0;
-        border-left-color: #fd7e14;
-    }
-    
-    .action-item.moderate {
-        background: #fffbf0;
-        border-left-color: #ffc107;
-    }
-    
-    .action-item.low-priority {
-        background: #f0fff4;
-        border-left-color: #28a745;
-    }
-    
-    .action-header {
-        margin-bottom: 10px;
-    }
-    
-    .action-badge {
-        display: inline-block;
-        padding: 8px 20px;
-        border-radius: 20px;
-        color: white;
-        font-weight: bold;
-        font-size: 0.85em;
-    }
-    
-    .action-badge.critical { background: #dc3545; }
-    .action-badge.high { background: #fd7e14; }
-    .action-badge.medium { background: #ffc107; color: #333; }
-    .action-badge.low { background: #28a745; }
-    
-    .action-content {
-        margin-top: 10px;
-        line-height: 1.6;
-    }
-    
-    .timeline-summary {
-        margin-top: 20px;
-        padding: 15px;
-        background: #e9ecef;
-        border-radius: 8px;
-        text-align: center;
-    }
-    
-    .key-recommendations {
-        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-        border-left: 5px solid #28a745;
-    }
-    
-    .recommendations-list {
-        margin-top: 15px;
-        margin-left: 25px;
-    }
-    
-    .recommendations-list li {
-        margin: 12px 0;
-        line-height: 1.6;
-    }
-    
-    /* Summary Cards */
-    .summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-        padding: 40px;
-        background: #f8f9fa;
-    }
-    
-    .summary-card {
-        background: white;
-        padding: 25px;
-        border-radius: 15px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        text-align: center;
-        transition: transform 0.3s;
-    }
-    
-    .summary-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-    }
-    
-    .summary-card .number {
-        font-size: 3em;
-        font-weight: bold;
-        margin-bottom: 10px;
-    }
-    
-    .summary-card .label {
-        color: #666;
-        font-size: 0.9em;
-        text-transform: uppercase;
-    }
-    
-    /* Severity Colors */
-    .critical { color: #dc3545; }
-    .high { color: #fd7e14; }
-    .medium { color: #ffc107; }
-    .low { color: #28a745; }
-    .info { color: #17a2b8; }
-    
-    /* Severity Breakdown */
-    .severity-details {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-    }
-    
-    .severity-card {
-        background: white;
-        padding: 25px;
-        border-radius: 12px;
-        border-left: 5px solid;
-        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-    }
-    
-    .severity-card.critical {
-        border-left-color: #dc3545;
-        background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
-    }
-    
-    .severity-card.high {
-        border-left-color: #fd7e14;
-        background: linear-gradient(135deg, #fff 0%, #fff8f0 100%);
-    }
-    
-    .severity-card.medium {
-        border-left-color: #ffc107;
-        background: linear-gradient(135deg, #fff 0%, #fffbf0 100%);
-    }
-    
-    .severity-card.low {
-        border-left-color: #28a745;
-        background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
-    }
-    
-    .severity-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #f0f0f0;
-    }
-    
-    .severity-icon {
-        font-size: 2em;
-    }
-    
-    .severity-name {
-        font-size: 1.3em;
-        font-weight: bold;
-    }
-    
-    .severity-count {
-        font-size: 2em;
-        font-weight: bold;
-    }
-    
-    .severity-info {
-        margin-top: 15px;
-    }
-    
-    .severity-info div {
-        margin: 8px 0;
-        font-size: 0.9em;
-    }
-    
-    /* Section Styles */
-    .section {
-        padding: 40px;
-    }
-    
-    .section-title {
-        font-size: 2em;
-        margin-bottom: 15px;
-        color: #1e3c72;
-        border-bottom: 3px solid #667eea;
-        padding-bottom: 10px;
-    }
-    
-    .section-description {
-        font-size: 1.05em;
-        color: #666;
-        margin-bottom: 25px;
-        line-height: 1.6;
-    }
-    
-    .no-findings {
-        text-align: center;
-        padding: 60px 20px;
-        background: #f8f9fa;
-        border-radius: 15px;
-    }
-    
-    .success-icon {
-        font-size: 5em;
-        margin-bottom: 20px;
-    }
-    
-    /* Vulnerability Card Styles */
-    .vulnerability-card {
-        background: white;
-        border-left: 5px solid #667eea;
-        padding: 30px;
-        margin-bottom: 25px;
-        border-radius: 12px;
-        box-shadow: 0 3px 15px rgba(0,0,0,0.1);
-    }
-    
-    .vulnerability-card.critical {
-        border-left-color: #dc3545;
-        background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
-    }
-    
-    .vulnerability-card.high {
-        border-left-color: #fd7e14;
-        background: linear-gradient(135deg, #fff 0%, #fff8f0 100%);
-    }
-    
-    .vulnerability-card.medium {
-        border-left-color: #ffc107;
-        background: linear-gradient(135deg, #fff 0%, #fffbf0 100%);
-    }
-    
-    .vulnerability-card.low {
-        border-left-color: #28a745;
-        background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
-    }
-    
-    .vuln-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 25px;
-        padding-bottom: 20px;
-        border-bottom: 2px solid #f0f0f0;
-    }
-    
-    .vuln-title {
-        font-size: 1.4em;
-        font-weight: bold;
-        color: #1e3c72;
-        flex: 1;
-    }
-    
-    .vuln-index {
-        color: #667eea;
-        margin-right: 10px;
-    }
-    
-    .vuln-badges {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-    
-    .exploit-badge {
-        background: #dc3545;
-        color: white;
-        padding: 6px 15px;
-        border-radius: 15px;
-        font-size: 0.75em;
-        font-weight: bold;
-        text-transform: uppercase;
-    }
-    
-    .severity-badge {
-        padding: 8px 20px;
-        border-radius: 20px;
-        color: white;
-        font-weight: bold;
-        font-size: 0.85em;
-        text-transform: uppercase;
-    }
-    
-    .severity-badge.critical { background: #dc3545; }
-    .severity-badge.high { background: #fd7e14; }
-    .severity-badge.medium { background: #ffc107; color: #333; }
-    .severity-badge.low { background: #28a745; }
-    
-    .vuln-section {
-        margin: 25px 0;
-        padding: 20px;
-        background: rgba(255,255,255,0.5);
-        border-radius: 8px;
-    }
-    
-    .vuln-section-title {
-        color: #1e3c72;
-        font-size: 1.2em;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e9ecef;
-    }
-    
-    .info-grid {
-        display: grid;
-        gap: 15px;
-    }
-    
-    .info-item {
-        padding: 12px;
-        background: white;
-        border-radius: 6px;
-    }
-    
-    .info-item strong {
-        color: #1e3c72;
-        display: block;
-        margin-bottom: 8px;
-    }
-    
-    .info-item code {
-        background: #f8f9fa;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-family: 'Courier New', monospace;
-        color: #dc3545;
-    }
-    
-    .vuln-type-badge {
-        display: inline-block;
-        background: #667eea;
-        color: white;
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 0.9em;
-    }
-    
-    /* Evidence Styles */
-    .evidence-container {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 8px;
-    }
-    
-    .evidence-item {
-        margin: 15px 0;
-    }
-    
-    .evidence-item strong {
-        color: #1e3c72;
-        display: block;
-        margin-bottom: 8px;
-    }
-    
-    .http-evidence {
-        margin: 20px 0;
-    }
-    
-    .http-block {
-        margin: 15px 0;
-    }
-    
-    .http-label {
-        background: #667eea;
-        color: white;
-        padding: 8px 15px;
-        border-radius: 6px 6px 0 0;
-        font-weight: bold;
-        font-size: 0.9em;
-    }
-    
-    .code-block {
-        background: #2d2d2d;
-        color: #f8f8f2;
-        padding: 20px;
-        border-radius: 0 0 8px 8px;
-        overflow-x: auto;
-        font-family: 'Courier New', monospace;
-        font-size: 0.9em;
-        line-height: 1.6;
-        white-space: pre-wrap;
-    }
-    
-    .reproduction-steps {
-        margin: 20px 0;
-    }
-    
-    .steps-list {
-        margin-left: 25px;
-        margin-top: 10px;
-    }
-    
-    .steps-list li {
-        margin: 10px 0;
-        padding: 12px;
-        background: white;
-        border-radius: 6px;
-        line-height: 1.6;
-    }
-    
-    /* Impact Section */
-    .impact-section {
-        background: linear-gradient(135deg, #fff8f0 0%, #ffe5cc 100%);
-        border-left: 4px solid #fd7e14;
-    }
-    
-    .impact-details {
-        margin-top: 15px;
+    .subdomain-list {
+        grid-template-columns: 1fr;
     }
     
     .impact-score {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        padding: 15px;
-        background: white;
-        border-radius: 8px;
+        flex-direction: column;
     }
-    
-    .impact-cvss {
-        font-size: 1.1em;
-    }
-    
-    .impact-priority {
-        padding: 10px 25px;
-        border-radius: 20px;
-        color: white;
-        font-weight: bold;
-    }
-    
-    .impact-categories {
-        margin: 15px 0;
-        padding: 15px;
-        background: white;
-        border-radius: 8px;
-    }
-    
-    .impact-categories ul {
-        margin-left: 25px;
-        margin-top: 10px;
-    }
-    
-    .impact-categories li {
-        margin: 8px 0;
-        line-height: 1.5;
-    }
-    
-    .impact-timeline {
-        padding: 12px;
-        background: white;
-        border-radius: 8px;
-        text-align: center;
-        font-size: 1.05em;
-    }
-    
-    /* Remediation Styles */
-    .remediation-container {
-        background: #d4edda;
-        padding: 25px;
-        border-radius: 8px;
-        border-left: 4px solid #28a745;
-    }
-    
-    .remediation-priority {
-        background: white;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        border-left: 4px solid;
-    }
-    
-    .remediation-sla {
-        color: #666;
-        font-weight: normal;
-    }
-    
-    .remediation-steps {
-        margin: 15px 0;
-    }
-    
-    .remediation-steps ol {
-        margin-left: 25px;
-        margin-top: 10px;
-    }
-    
-    .remediation-steps li {
-        margin: 10px 0;
-        line-height: 1.6;
-    }
-    
-    .remediation-specific {
-        margin: 15px 0;
-        padding: 15px;
-        background: white;
-        border-radius: 8px;
-    }
-    
-    .remediation-specific ul {
-        margin-left: 25px;
-        margin-top: 10px;
-    }
-    
-    .remediation-specific li {
-        margin: 8px 0;
-        line-height: 1.5;
-    }
-    
-    .remediation-validation {
-        margin-top: 15px;
-        padding: 15px;
-        background: white;
-        border-radius: 8px;
-    }
-    
-    .remediation-validation ol {
-        margin-left: 25px;
-        margin-top: 10px;
-    }
-    
-    .remediation-validation li {
-        margin: 8px 0;
-        line-height: 1.5;
-    }
-    
-    /* Metadata */
-    .vuln-metadata {
-        display: flex;
-        gap: 30px;
-        margin-top: 25px;
-        padding-top: 20px;
-        border-top: 2px solid #f0f0f0;
-        font-size: 0.9em;
-        color: #666;
-        flex-wrap: wrap;
-    }
-    
-    .vuln-metadata strong {
-        color: #1e3c72;
-    }
-    
-    /* Subdomain List */
-    .subdomain-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 15px;
-    }
-    
-    .subdomain-item {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 3px solid #667eea;
-        transition: transform 0.2s;
-    }
-    
-    .subdomain-item:hover {
-        transform: translateX(5px);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    
-    .subdomain-item .domain {
-        font-weight: bold;
-        color: #1e3c72;
-        margin-bottom: 8px;
-    }
-    
-    .subdomain-item .tech {
-        font-size: 0.85em;
-        color: #666;
-    }
-    
-    .tech-badge {
-        display: inline-block;
-        background: #e9ecef;
-        padding: 4px 12px;
-        border-radius: 12px;
-        margin: 3px;
-        font-size: 0.85em;
-    }
-    
-    /* Remediation Roadmap */
-    .remediation-roadmap {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    }
-    
-    .roadmap-timeline {
-        margin-top: 30px;
-    }
-    
-    .roadmap-phase {
-        margin: 20px 0;
-        padding: 25px;
-        background: white;
-        border-radius: 12px;
-        border-left: 5px solid;
-    }
-    
-    .roadmap-phase.critical { border-left-color: #dc3545; }
-    .roadmap-phase.high { border-left-color: #fd7e14; }
-    .roadmap-phase.medium { border-left-color: #ffc107; }
-    .roadmap-phase.low { border-left-color: #28a745; }
     
     .phase-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #f0f0f0;
+        flex-direction: column;
+        align-items: flex-start;
     }
-    
-    .phase-header h3 {
-        color: #1e3c72;
-        font-size: 1.3em;
-    }
-    
-    .phase-count {
-        background: #667eea;
-        color: white;
-        padding: 6px 15px;
-        border-radius: 15px;
-        font-weight: bold;
-    }
-    
-    .phase-empty {
-        color: #28a745;
-        text-align: center;
-        padding: 20px;
-        font-size: 1.1em;
-    }
-    
-    .phase-items {
-        margin-left: 25px;
-    }
-    
-    .phase-items li {
-        margin: 10px 0;
-        line-height: 1.6;
-    }
-    
-    .roadmap-summary {
-        margin-top: 30px;
-        padding: 25px;
-        background: white;
-        border-radius: 12px;
-        border-left: 5px solid #667eea;
-    }
-    
-    .roadmap-summary h3 {
-        color: #1e3c72;
-        margin-bottom: 15px;
-    }
-    
-    .roadmap-summary ul {
-        margin-left: 25px;
-    }
-    
-    .roadmap-summary li {
-        margin: 10px 0;
-        line-height: 1.6;
-    }
-    
-    /* Footer */
-    .footer {
-        background: #1e3c72;
-        color: white;
-        padding: 40px;
-        text-align: center;
-    }
-    
-    .footer p {
-        margin: 10px 0;
-    }
-    
-    .footer a {
-        color: #667eea;
-        text-decoration: none;
-    }
-    
-    .footer a:hover {
-        text-decoration: underline;
-    }
-    
-    /* Print Styles */
-    @media print {
-        body {
-            background: white;
-        }
-        .container {
-            box-shadow: none;
-        }
-        .vulnerability-card {
-            page-break-inside: avoid;
-        }
-    }
-    
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .header h1 {
-            font-size: 2em;
-        }
-        
-        .summary {
-            grid-template-columns: 1fr;
-        }
-        
-        .severity-details {
-            grid-template-columns: 1fr;
-        }
-        
-        .finding-grid {
-            grid-template-columns: 1fr;
-        }
-        
-        .subdomain-list {
-            grid-template-columns: 1fr;
-        }
-    }
-    """
+}
+"""
 ```
