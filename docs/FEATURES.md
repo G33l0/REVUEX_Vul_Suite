@@ -245,30 +245,9 @@ Each example shows the **exact code** to add to your scanners!
 
 -----
 
-## 🤝 Support
-
-Questions? Check:
-
-- `USAGE_EXAMPLE.md` - Integration guide
-- `demo_enhanced_report.py` - Working example
-- `DEMO_REPORT.html` - Visual reference
-
------
-
-## 🎉 You’re All Set!
-
-Your REVUEX suite now generates **professional, bug bounty-ready reports** with:
-
-1. ✅ Executive Summary
-1. ✅ Technical Evidence
-1. ✅ **Steps to Reproduce** ← NEW!
-1. ✅ **Proof (HTTP + PoC)** ← NEW!
-1. ✅ Severity Assessment
-1. ✅ Remediation Guidance
-
 Happy hunting! 🎯
 
 -----
 
-*Built for G33L0’s REVUEX Vulnerability Suite*  
+*Built by G33L0’s for REVUEX Vulnerability Suite*  
 *Telegram: @x0x0h33l0*
