@@ -80,11 +80,6 @@ class RealTimeStatusDisplay:
 ║        Advanced Bug Bounty Automation Framework               ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
-
-{Fore.YELLOW}Author: {Fore.WHITE}G33L0 {Fore.YELLOW}| Telegram: {Fore.WHITE}@x0x0h33l0
-{Fore.YELLOW}GitHub: {Fore.WHITE}github.com/G33L0/revuex-vul-suite
-{Fore.GREEN}NEW: {Fore.WHITE}19 Advanced Security Scanners Integrated!
-{Style.RESET_ALL}
 """
         print(banner)
 
@@ -92,14 +87,12 @@ class RealTimeStatusDisplay:
         print(f"""
 {Fore.CYAN}═══════════════════════════════════════════════════════════════
 {Fore.YELLOW}SCAN CONFIGURATION
-{Fore.CYAN}═══════════════════════════════════════════════════════════════{Style.RESET_ALL}
+{Fore.CYAN}═══════════════════════════════════════════════════════════════
 
 {Fore.GREEN}Target:{Style.RESET_ALL}    {target}
 {Fore.GREEN}Mode:{Style.RESET_ALL}      {mode}
 {Fore.GREEN}Delay:{Style.RESET_ALL}     {delay}s
 {Fore.GREEN}Scanners:{Style.RESET_ALL}  {scanners_count}
-
-{Fore.CYAN}═══════════════════════════════════════════════════════════════{Style.RESET_ALL}
 """)
 
     def start_scan(self, total_scanners):
@@ -107,23 +100,16 @@ class RealTimeStatusDisplay:
         self.total_scanners = total_scanners
         self.scanners_completed = 0
         self.findings_count = 0
-
         print(f"{Fore.GREEN}Framework initialized successfully{Style.RESET_ALL}\n")
 
     def update_phase(self, phase_name):
-        elapsed = self._elapsed()
-        print(f"\n{Fore.CYAN}Phase:{Style.RESET_ALL} {phase_name} | Elapsed: {elapsed}")
+        print(f"\n{Fore.CYAN}Phase:{Style.RESET_ALL} {phase_name}")
 
     def start_scanner(self, scanner_name):
         self.scanners_completed += 1
-        print(f"{Fore.BLUE}[{self.scanners_completed}/{self.total_scanners}] {scanner_name} starting...{Style.RESET_ALL}")
-
-    def update_scanner_status(self, msg):
-        self.clear_line()
-        print(f"  {Fore.YELLOW}{msg}{Style.RESET_ALL}", end='', flush=True)
+        print(f"{Fore.BLUE}[{self.scanners_completed}/{self.total_scanners}] {scanner_name} starting...")
 
     def complete_scanner(self, name, findings, duration):
-        self.clear_line()
         self.findings_count += findings
         status = f"{Fore.RED}{findings} findings" if findings else f"{Fore.GREEN}clean"
         print(f"{Fore.CYAN}{name}{Style.RESET_ALL} completed - {status} ({duration:.1f}s)")
@@ -135,13 +121,6 @@ class RealTimeStatusDisplay:
         print(f"\n{Fore.GREEN}SCAN COMPLETE{Style.RESET_ALL}")
         print(f"Scanners run: {self.scanners_completed}")
         print(f"Findings: {self.findings_count}")
-        print(f"Total time: {self._elapsed()}")
-
-    def _elapsed(self):
-        if not self.start_time:
-            return "0s"
-        sec = time.time() - self.start_time
-        return f"{int(sec)}s"
 
 # ================= SUITE CORE =================
 
@@ -157,7 +136,6 @@ class RevuexSuite:
         self.logger = RevuexLogger(self.workspace)
         self.intelligence = IntelligenceHub(self.workspace)
         self.report_gen = ReportGenerator(self.workspace)
-
         self.status = RealTimeStatusDisplay()
 
         self.scanners = {
@@ -200,21 +178,33 @@ class RevuexSuite:
         self.status.start_scan(total)
 
         for phase in self.scanners:
+            self.logger.log_phase_start(phase)
             self.status.update_phase(phase.title())
             self._run_phase(phase)
+            self.logger.log_phase_complete(phase)
 
         self.status.complete_scan()
+        self.logger.save_statistics()
 
     def _run_phase(self, phase):
         for name, cls in self.scanners[phase]:
             start = time.time()
             try:
                 self.status.start_scanner(name)
+                self.logger.log_scanner_start(name, self.target)
+
                 scanner = cls(self.target, self.workspace, self.delay)
-                results = scanner.scan()
-                findings = len(results.get('vulnerabilities', [])) if isinstance(results, dict) else 0
+                results = scanner.scan() or {}
+
+                findings = 0
+                if isinstance(results, dict):
+                    findings = len(results.get('vulnerabilities', []))
+
+                self.logger.log_scanner_complete(name, findings)
                 self.status.complete_scanner(name, findings, time.time() - start)
+
             except Exception as e:
+                self.logger.log_scanner_error(name, str(e))
                 self.status.show_error(name, str(e))
 
 # ================= CLI =================
@@ -233,8 +223,6 @@ def main():
 
     suite = RevuexSuite(args.target, delay=args.delay)
     suite.run_full_scan()
-
-# ================= ENTRY =================
 
 if __name__ == "__main__":
     main()
