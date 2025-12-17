@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""
+"""
 REVUEX - Dependency Checker
 Vulnerable Dependency Detection
 
