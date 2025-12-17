@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX Intelligence Hub - Central Intelligence Database v2.0
 Author: G33L0
 Telegram: @x0x0h33l0
