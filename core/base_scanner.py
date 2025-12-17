@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - Base Scanner
 Foundation class for all security scanners
 
