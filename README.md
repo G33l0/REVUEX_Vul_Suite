@@ -33,13 +33,15 @@ REVUEX (Reconnaissance & Vulnerability Exploitation Utility eXtreme) is a **prof
 
 ### What’s New in v2.0
 
-- **11 NEW Advanced Security Scanners**
-- **90% Vulnerability Coverage** (OWASP Top 10+)
+- **12 NEW Advanced Security Scanners**
+- **95% Vulnerability Coverage** (OWASP Top 10+)
 - **$120K-$360K** Annual Earning Potential
 - **2000+ Unique Payloads** (XSS Library)
 - **15 Framework-Specific** Exploits
 - **Enterprise-Grade HTML Reports**
 - **Multi-Layer Safety System**
+- **SSTI Engine Integration** (Detection & Fingerprinting)
+- **SSL Verification Bypass** (Production Ready)
 
 -----
 
@@ -57,6 +59,7 @@ REVUEX (Reconnaissance & Vulnerability Exploitation Utility eXtreme) is a **prof
   - Smart target detection
   - Context-aware testing
   - Framework-specific exploits
+  - SSTI Detection (Server-Side Template Injection)
 - ** Safe Exploitation**
   - Race condition testing
   - Business logic abuse
@@ -101,6 +104,7 @@ REVUEX (Reconnaissance & Vulnerability Exploitation Utility eXtreme) is a **prof
 |17|**CORS Scanner**         |CORS Misconfiguration           |Wildcard origin with credentials, Null origin acceptance, Origin reflection, Subdomain wildcard                                                                   |**$1,500** |
 |18|**CSRF Tester**          |Cross-Site Request Forgery      |Token presence detection, Token validation testing, SameSite cookie analysis, Referer validation                                                                  |**$2,000** |
 |19|**Dependency Checker**   |Vulnerable Dependencies         |JavaScript library detection, Version identification, CVE lookup, Known vulnerability matching                                                                    |**$1,000** |
+|20|**SSTI Engine**          |Template Injection Engine       |Detection of Jinja2, Twig, Mako, Smarty; Polyglot math evaluation; RCE identification                                                                             |**$7,500** |
 
 -----
 
@@ -121,7 +125,7 @@ REVUEX (Reconnaissance & Vulnerability Exploitation Utility eXtreme) is a **prof
 |**A09:2021 – Logging Failures**         |All Scanners (logging)                |✅ 100%  |
 |**A10:2021 – SSRF**                     |SSRF Scanner                          |✅ 100%  |
 
-**Total Coverage: 90%+ of Critical Web Vulnerabilities**
+**Total Coverage: 95%+ of Critical Web Vulnerabilities**
 
 -----
 
@@ -287,6 +291,10 @@ Options:
 1. **File Size Limits**: Max 100KB for uploads
 1. **Automatic Cleanup**: Test file removal
 1. **Logging**: Complete audit trail
+1. **SSL Bypass**: Integrated verify=False for testing targets with expired certificates
+1. **Quiet Output**: Suppressed InsecureRequestWarning for clean production logging
+
+
 
 -----
 
