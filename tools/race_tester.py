@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - Race Condition Tester
 Advanced Race Condition Detection & Exploitation
 
