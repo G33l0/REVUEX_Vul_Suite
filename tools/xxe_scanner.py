@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - XXE Scanner
 XML External Entity Injection Detection
 
