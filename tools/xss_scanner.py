@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - Enhanced XSS Scanner
 Elite Cross-Site Scripting Detection with Unique Payloads
 
