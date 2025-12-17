@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - Enhanced SQL Injection Scanner
 Advanced SQL Injection Detection Across All Database Types
 
