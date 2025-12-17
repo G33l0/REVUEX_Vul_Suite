@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - CSRF Tester
 Cross-Site Request Forgery Detection
 
