@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - JWT Token Analyzer
 Advanced JWT Security Testing & Exploitation
 
