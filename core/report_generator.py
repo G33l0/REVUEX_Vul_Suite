@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX Report Generator v2.0 - World-Class Professional Security Reports
 Author: G33L0
 Telegram: @x0x0h33l0
