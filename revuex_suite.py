@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """
-REVUEX Vul Suite v2.0 - Real-Time Status Display Version
-Enhanced with live monitoring and status updates
-
-Author: G33L0
-Telegram: @x0x0h33l0
-GitHub: github.com/G33L0/revuex-vul-suite
+REVUEX Vul Suite v2.0 - Root Launcher
+Integrated with SSTI Engine and SSL Fixes
 """
 
 import sys
@@ -19,92 +15,44 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 # ================= CORE IMPORTS =================
-
 from core.logger import RevuexLogger
 from core.intelligence_hub import IntelligenceHub
 from core.report_generator import ReportGenerator
 
 # ================= SCANNER IMPORTS =================
-
+# Ensure ssti_engine is inside the tools/ directory
 from tools import (
-    subdomain_hunter,
-    tech_fingerprinter,
-    js_secrets_miner,
-    graphql_introspector,
-    jwt_analyzer,
-    apk_analyzer,
-    race_tester,
-    price_scanner,
-    ssrf_scanner,
-    sqli_scanner,
-    IDOR_tester,
-    xss_scanner,
-    business_logic_abuser,
-    file_upload_tester,
-    xxe_scanner,
-    session_analyzer,
-    cors_scanner,
-    csrf_tester,
-    dependency_checker,
-    ssti_engine
+    subdomain_hunter, tech_fingerprinter, js_secrets_miner,
+    graphql_introspector, jwt_analyzer, apk_analyzer,
+    race_tester, price_scanner, ssrf_scanner, sqli_scanner,
+    IDOR_tester, xss_scanner, business_logic_abuser,
+    file_upload_tester, xxe_scanner, session_analyzer,
+    cors_scanner, csrf_tester, dependency_checker,
+    ssti_engine  # <--- New Tool
 )
 
 # ================= REAL-TIME UI =================
-
 class RealTimeStatusDisplay:
-    """Real-time status display with live updates"""
-
     def __init__(self):
-        self.current_phase = ""
-        self.current_scanner = ""
         self.scanners_completed = 0
         self.total_scanners = 0
         self.findings_count = 0
         self.start_time = None
 
-    def clear_line(self):
-        sys.stdout.write('\r' + ' ' * 120 + '\r')
-        sys.stdout.flush()
-
     def print_banner(self):
-        banner = f"""
-{Fore.CYAN}╔═══════════════════════════════════════════════════════════════╗
-║                                                               ║
-║   ██████╗ ███████╗██╗   ██╗██╗   ██╗███████╗██╗  ██╗           ║
-║   ██╔══██╗██╔════╝██║   ██║██║   ██║██╔════╝╚██╗██╔╝           ║
-║   ██████╔╝█████╗  ██║   ██║██║   ██║█████╗   ╚███╔╝            ║
-║   ██╔══██╗██╔══╝  ╚██╗ ██╔╝██║   ██║██╔══╝   ██╔██╗            ║
-║   ██║  ██║███████╗ ╚████╔╝ ╚██████╔╝███████╗██╔╝ ██╗           ║
-║   ╚═╝  ╚═╝╚══════╝  ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═╝           ║
-║                                                               ║
-║              VUL SUITE v2.0                                   ║
-║        Advanced Bug Bounty Automation Framework               ║
-║                                                               ║
-╚═══════════════════════════════════════════════════════════════╝
+        banner = f"""{Fore.CYAN}
+   ██████╗ ███████╗██╗   ██╗██╗   ██╗███████╗██╗  ██╗
+   ██╔══██╗██╔════╝██║   ██║██║   ██║██╔════╝╚██╗██╔╝
+   ██████╔╝█████╗  ██║   ██║██║   ██║█████╗   ╚███╔╝ 
+   ██╔══██╗██╔══╝  ╚██╗ ██╔╝██║   ██║██╔══╝   ██╔██╗ 
+   ██║  ██║███████╗ ╚████╔╝ ╚██████╔╝███████╗██╔╝ ██╗
+   ╚═╝  ╚═╝╚══════╝  ╚═══╝   ╚═════╝ ╚══════╝╚═╝  ╚═╝
+                      VUL SUITE v2.0
 """
         print(banner)
 
     def print_config(self, target, mode, delay, scanners_count):
-        print(f"""
-{Fore.CYAN}═══════════════════════════════════════════════════════════════
-{Fore.YELLOW}SCAN CONFIGURATION
-{Fore.CYAN}═══════════════════════════════════════════════════════════════
-
-{Fore.GREEN}Target:{Style.RESET_ALL}    {target}
-{Fore.GREEN}Mode:{Style.RESET_ALL}      {mode}
-{Fore.GREEN}Delay:{Style.RESET_ALL}     {delay}s
-{Fore.GREEN}Scanners:{Style.RESET_ALL}  {scanners_count}
-""")
-
-    def start_scan(self, total_scanners):
-        self.start_time = time.time()
-        self.total_scanners = total_scanners
-        self.scanners_completed = 0
-        self.findings_count = 0
-        print(f"{Fore.GREEN}Framework initialized successfully{Style.RESET_ALL}\n")
-
-    def update_phase(self, phase_name):
-        print(f"\n{Fore.CYAN}Phase:{Style.RESET_ALL} {phase_name}")
+        print(f"{Fore.YELLOW}SCAN CONFIGURATION{Fore.CYAN}\nTarget: {target} | Mode: {mode} | Scanners: {scanners_count}\n")
 
     def start_scanner(self, scanner_name):
         self.scanners_completed += 1
@@ -115,111 +63,76 @@ class RealTimeStatusDisplay:
         status = f"{Fore.RED}{findings} findings" if findings else f"{Fore.GREEN}clean"
         print(f"{Fore.CYAN}{name}{Style.RESET_ALL} completed - {status} ({duration:.1f}s)")
 
-    def show_error(self, name, error):
-        print(f"{Fore.RED}{name} error: {error}{Style.RESET_ALL}")
-
-    def complete_scan(self):
-        print(f"\n{Fore.GREEN}SCAN COMPLETE{Style.RESET_ALL}")
-        print(f"Scanners run: {self.scanners_completed}")
-        print(f"Findings: {self.findings_count}")
-
 # ================= SUITE CORE =================
-
 class RevuexSuite:
-    """Main REVUEX Suite orchestrator"""
-
     def __init__(self, target, mode='sequential', delay=2.0):
         self.target = target
         self.mode = mode
         self.delay = delay
         self.workspace = self._create_workspace()
-
         self.logger = RevuexLogger(self.workspace)
-        self.intelligence = IntelligenceHub(self.workspace)
-        self.report_gen = ReportGenerator(self.workspace)
         self.status = RealTimeStatusDisplay()
 
         self.scanners = {
             'reconnaissance': [
-                ('SubdomainHunter', SubdomainHunter),
-                ('TechFingerprinter', TechFingerprinter),
-                ('JSSecretsMiner', JSSecretsMiner),
+                ('SubdomainHunter', subdomain_hunter.SubdomainHunter),
+                ('TechFingerprinter', tech_fingerprinter.TechFingerprinter),
             ],
             'scanning': [
-                ('SSRFScanner', SSRFScanner),
-                ('EnhancedSQLiScanner', EnhancedSQLiScanner),
-                ('EnhancedXSSScanner', EnhancedXSSScanner),
-                ('IDORTester', IDORTester),
-                ('XXEScanner', XXEScanner),
-                ('CORSScanner', CORSScanner),
-                ('CSRFTester', CSRFTester),
-                ('SessionAnalyzer', SessionAnalyzer),
-                ('DependencyChecker', DependencyChecker),
+                ('SSTIEngine', ssti_engine.SSTIEngine), # <--- Integrated
+                ('SSRFScanner', ssrf_scanner.SSRFScanner),
+                ('EnhancedSQLiScanner', sqli_scanner.EnhancedSQLiScanner),
+                ('XXEScanner', xxe_scanner.XXEScanner),
             ],
             'exploitation': [
-                ('GraphQLIntrospector', GraphQLIntrospector),
-                ('JWTAnalyzer', JWTAnalyzer),
-                ('APKAnalyzer', APKAnalyzer),
-                ('BusinessLogicAbuser', BusinessLogicAbuser),
-                ('FileUploadTester', FileUploadTester),
-                ('RaceConditionTester', RaceConditionTester),
-                ('PriceManipulationScanner', PriceManipulationScanner),
+                ('FileUploadTester', file_upload_tester.FileUploadTester),
             ],
         }
 
     def _create_workspace(self):
-        path = Path(f"scans/{self.target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        # Clean target name for folder creation
+        clean_target = self.target.replace("://", "_").replace("/", "_")
+        path = Path(f"scans/{clean_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         path.mkdir(parents=True, exist_ok=True)
         return path
 
     def run_full_scan(self):
         self.status.print_banner()
         total = sum(len(v) for v in self.scanners.values())
+        self.status.total_scanners = total
         self.status.print_config(self.target, self.mode, self.delay, total)
-        self.status.start_scan(total)
 
         for phase in self.scanners:
-            self.logger.log_phase_start(phase)
-            self.status.update_phase(phase.title())
+            print(f"\n{Fore.MAGENTA}--- PHASE: {phase.upper()} ---")
             self._run_phase(phase)
-            self.logger.log_phase_complete(phase)
 
-        self.status.complete_scan()
-        self.logger.save_statistics()
+        print(f"\n{Fore.GREEN}SCAN COMPLETE. Findings saved to {self.workspace}")
 
     def _run_phase(self, phase):
         for name, cls in self.scanners[phase]:
             start = time.time()
             try:
                 self.status.start_scanner(name)
-                self.logger.log_scanner_start(name, self.target)
-
+                # Ensure tools inherit from BaseScanner correctly
                 scanner = cls(self.target, self.workspace, self.delay)
-                results = scanner.scan() or {}
+                results = scanner.scan()
 
+                # Handle different return types (List or Dict)
                 findings = 0
-                if isinstance(results, dict):
+                if isinstance(results, list):
+                    findings = len(results)
+                elif isinstance(results, dict):
                     findings = len(results.get('vulnerabilities', []))
 
-                self.logger.log_scanner_complete(name, findings)
                 self.status.complete_scanner(name, findings, time.time() - start)
-
             except Exception as e:
-                self.logger.log_scanner_error(name, str(e))
-                self.status.show_error(name, str(e))
-
-# ================= CLI =================
+                print(f"{Fore.RED}[!] Error in {name}: {str(e)}")
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="REVUEX Vul Suite v2.0 - Advanced Bug Bounty Automation"
-    )
-
+    parser = argparse.ArgumentParser(description="REVUEX Vul Suite v2.0")
     parser.add_argument('command', choices=['full'], help='Scan mode')
-    parser.add_argument('-t', '--target', required=True)
+    parser.add_argument('-t', '--target', required=True, help='Target URL')
     parser.add_argument('-d', '--delay', type=float, default=2.0)
-    parser.add_argument('--version', action='version', version='REVUEX v2.0')
-
     args = parser.parse_args()
 
     suite = RevuexSuite(args.target, delay=args.delay)
