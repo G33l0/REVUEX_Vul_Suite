@@ -27,25 +27,25 @@ from core.report_generator import ReportGenerator
 # ================= SCANNER IMPORTS =================
 
 from tools import (
-    SubdomainHunter,
-    TechFingerprinter,
-    JSSecretsMiner,
-    GraphQLIntrospector,
-    JWTAnalyzer,
-    APKAnalyzer,
-    RaceConditionTester,
-    PriceManipulationScanner,
-    SSRFScanner,
-    EnhancedSQLiScanner,
-    IDORTester,
-    EnhancedXSSScanner,
-    BusinessLogicAbuser,
-    FileUploadTester,
-    XXEScanner,
-    SessionAnalyzer,
-    CORSScanner,
-    CSRFTester,
-    DependencyChecker
+    subdomain_hunter,
+    tech_fingerprinter,
+    js_secrets_miner,
+    graphql_introspector,
+    jwt_analyzer,
+    apk_analyzer,
+    race_tester,
+    price_scanner,
+    ssrf_scanner,
+    sqli_scanner,
+    IDOR_tester,
+    xss_scanner,
+    business_logic_abuser,
+    file_upload_tester,
+    xxe_scanner,
+    session_analyzer,
+    cors_scanner,
+    csrf_tester,
+    dependency_checker
 )
 
 # ================= REAL-TIME UI =================
