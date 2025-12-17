@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 REVUEX Vul Suite v2.0 - Root Launcher
-Integrated with SSTI Engine and SSL Fixes
+Integrated with SSTI Engine, JWT Analyzer, CSRF, and Dependency Checker
 """
 
 import sys
@@ -20,7 +20,6 @@ from core.intelligence_hub import IntelligenceHub
 from core.report_generator import ReportGenerator
 
 # ================= SCANNER IMPORTS =================
-# Ensure ssti_engine is inside the tools/ directory
 from tools import (
     subdomain_hunter, tech_fingerprinter, js_secrets_miner,
     graphql_introspector, jwt_analyzer, apk_analyzer,
@@ -28,7 +27,7 @@ from tools import (
     IDOR_tester, xss_scanner, business_logic_abuser,
     file_upload_tester, xxe_scanner, session_analyzer,
     cors_scanner, csrf_tester, dependency_checker,
-    ssti_engine  # <--- New Tool
+    ssti_engine
 )
 
 # ================= REAL-TIME UI =================
@@ -73,16 +72,31 @@ class RevuexSuite:
         self.logger = RevuexLogger(self.workspace)
         self.status = RealTimeStatusDisplay()
 
+        # UPDATED: All tools mapped to their respective phases
         self.scanners = {
             'reconnaissance': [
                 ('SubdomainHunter', subdomain_hunter.SubdomainHunter),
                 ('TechFingerprinter', tech_fingerprinter.TechFingerprinter),
+                ('DependencyChecker', dependency_checker.DependencyChecker), # <--- New
             ],
-            'scanning': [
-                ('SSTIEngine', ssti_engine.SSTIEngine), # <--- Integrated
+            'authentication_jwt': [
+                ('JWTAnalyzer', jwt_analyzer.JWTAnalyzer), # <--- New
+                ('SessionAnalyzer', session_analyzer.SessionAnalyzer),
+                ('CORSScanner', cors_scanner.CORSScanner),
+                ('CSRFTester', csrf_tester.CSRFTester), # <--- New
+            ],
+            'injection_scanning': [
+                ('SSTIEngine', ssti_engine.SSTIEngine),
                 ('SSRFScanner', ssrf_scanner.SSRFScanner),
                 ('EnhancedSQLiScanner', sqli_scanner.EnhancedSQLiScanner),
                 ('XXEScanner', xxe_scanner.XXEScanner),
+                ('XSSScanner', xss_scanner.XSSScanner),
+            ],
+            'business_logic': [
+                ('IDORTester', IDOR_tester.IDORTester),
+                ('PriceScanner', price_scanner.PriceScanner),
+                ('RaceTester', race_tester.RaceTester),
+                ('BusinessLogicAbuser', business_logic_abuser.BusinessLogicAbuser),
             ],
             'exploitation': [
                 ('FileUploadTester', file_upload_tester.FileUploadTester),
@@ -90,7 +104,6 @@ class RevuexSuite:
         }
 
     def _create_workspace(self):
-        # Clean target name for folder creation
         clean_target = self.target.replace("://", "_").replace("/", "_")
         path = Path(f"scans/{clean_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         path.mkdir(parents=True, exist_ok=True)
@@ -113,11 +126,29 @@ class RevuexSuite:
             start = time.time()
             try:
                 self.status.start_scanner(name)
-                # Ensure tools inherit from BaseScanner correctly
-                scanner = cls(self.target, self.workspace, self.delay)
-                results = scanner.scan()
+                
+                # SPECIAL HANDLING FOR JWT: Requires token input if not found
+                if name == "JWTAnalyzer":
+                    token = input(f"{Fore.YELLOW}   [?] Enter JWT token for analysis (or press Enter to skip): ")
+                    if not token:
+                        print(f"{Fore.YELLOW}   [!] Skipping JWT analysis (No token provided)")
+                        continue
+                    scanner = cls(self.target, [token], self.workspace, self.delay)
+                else:
+                    scanner = cls(self.target, self.workspace, self.delay)
 
-                # Handle different return types (List or Dict)
+                # Logic for tools with different primary method names
+                if hasattr(scanner, 'scan'):
+                    results = scanner.scan()
+                elif hasattr(scanner, 'discover'):
+                    results = scanner.discover()
+                elif hasattr(scanner, 'analyze'):
+                    results = scanner.analyze()
+                else:
+                    print(f"{Fore.RED}   [!] Error: No executable method found in {name}")
+                    continue
+
+                # Handle different return types
                 findings = 0
                 if isinstance(results, list):
                     findings = len(results)
