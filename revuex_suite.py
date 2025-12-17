@@ -45,7 +45,8 @@ from tools import (
     session_analyzer,
     cors_scanner,
     csrf_tester,
-    dependency_checker
+    dependency_checker,
+    ssti_engine
 )
 
 # ================= REAL-TIME UI =================
