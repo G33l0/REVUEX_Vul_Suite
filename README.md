@@ -137,8 +137,8 @@ REVUEX (Reconnaissance & Vulnerability Exploitation Utility eXtreme) is a **prof
 
 ```bash
 # Clone repository
-git clone https://github.com/G33L0/revuex-vul-suite.git
-cd revuex-vul-suite
+git clone https://github.com/G33L0/REVUEX_Vul_Suite.git
+cd REVUEX-Vul-Suite
 
 # Install dependencies
 pip install -r requirements.txt
