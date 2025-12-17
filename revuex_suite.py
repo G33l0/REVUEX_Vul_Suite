@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+
 REVUEX Vulnerability Suite - Master Orchestrator
 Advanced Bug Bounty Automation Framework
 
