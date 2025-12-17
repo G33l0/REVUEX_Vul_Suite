@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - CORS Scanner
 Cross-Origin Resource Sharing Misconfiguration Detection
 
