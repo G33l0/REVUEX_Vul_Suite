@@ -21,7 +21,7 @@
 **Author:** G33L0  
 **Telegram:** [@x0x0h33l0](https://t.me/x0x0h33l0)
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Scanners](#-security-scanners) • [Examples](#-examples)
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Tools](#-tool) • [Examples](#-examples)
 
 </div>
 
