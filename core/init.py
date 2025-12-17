@@ -1,4 +1,4 @@
-“””
+"""
 REVUEX Vulnerability Suite - Core Modules
 Advanced Bug Bounty Automation Framework v2.0
 
@@ -149,9 +149,9 @@ def print_banner():
 “”“Print REVUEX Core banner”””
 banner = f”””
 ╔════════════════════════════════════════════╗
-║     REVUEX Core Modules v{**version**}            ║
-║     Author: {**author**}                        ║
-║     Telegram: {**telegram**}         ║
+║     REVUEX Core Modules v{**version**}     ║
+║     Author: {**author**}                   ║
+║     Telegram: {**telegram**}               ║
 ╚════════════════════════════════════════════╝
 
 ```
