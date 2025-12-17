@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - IDOR Tester
 Insecure Direct Object Reference Detection & Exploitation
 
