@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - Price Manipulation Scanner
 E-commerce Security Testing & Price Tampering Detection
 
