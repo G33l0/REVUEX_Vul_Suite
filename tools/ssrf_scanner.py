@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - SSRF Scanner
 Advanced Server-Side Request Forgery Detection
 
