@@ -13,7 +13,7 @@
 
 **Advanced Bug Bounty Automation Framework**
 
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/G33L0/revuex-vul-suite)
+[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/G33L0/REVUEX_Vul_Suite)
 [![Python](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-red.svg)](LICENSE)
 [![Scanners](https://img.shields.io/badge/scanners-19-orange.svg)](#security-scanners)
