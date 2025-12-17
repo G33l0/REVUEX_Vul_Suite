@@ -1,0 +1,16 @@
+{
+  "polyglots": [
+    "{{7*7}}",
+    "${7*7}",
+    "<%= 7*7 %>",
+    "#{7*7}",
+    "*{7*7}"
+  ],
+  "engines": {
+    "Jinja2": "{{config.items()}}",
+    "Twig": "{{_self}}",
+    "Mako": "${self.context}",
+    "Smarty": "{$smarty.version}",
+    "FreeMarker": "${.version}"
+  }
+}
