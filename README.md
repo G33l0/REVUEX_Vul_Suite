@@ -160,6 +160,7 @@ pyjwt>=2.8.0
 cryptography>=41.0.0
 urllib3>=2.0.0
 html-parser>=0.0.3
+colorama>=0.4.6
 ```
 
 -----
