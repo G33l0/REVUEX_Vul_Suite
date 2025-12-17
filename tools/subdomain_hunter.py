@@ -5,43 +5,39 @@ Advanced Subdomain Discovery & Enumeration
 
 Author: G33L0
 Telegram: @x0x0h33l0
-
-DISCLAIMER:
-This tool is for educational purposes and authorized security testing only.
 """
 
 import requests
-import subprocess
 import time
 import json
+import urllib3
+import re
 from pathlib import Path
 from urllib.parse import urlparse
+
+# Suppress SSL warnings for validation phase
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class SubdomainHunter:
     """Advanced subdomain discovery tool"""
     
     def __init__(self, target, workspace, delay=2):
-        """
-        Initialize SubdomainHunter
-        
-        Args:
-            target: Target domain
-            workspace: Workspace directory
-            delay: Delay between requests
-        """
         self.target = target
         self.workspace = Path(workspace)
         self.delay = delay
         self.subdomains = set()
-        
-        # User agent
         self.headers = {
             'User-Agent': 'REVUEX-SubdomainHunter/1.0 (Security Research; +https://github.com/G33L0)'
         }
     
     def discover(self):
         """Discover subdomains using multiple techniques"""
-        print(f"    [*] Starting subdomain discovery for {self.target}")
+        print(f"\n{'='*60}")
+        print(f"📡 REVUEX SubdomainHunter: {self.target}")
+        print(f"{'='*60}")
+        
+        # Ensure workspace exists before starting
+        self.workspace.mkdir(parents=True, exist_ok=True)
         
         # Technique 1: Certificate Transparency Logs
         self._crt_sh_search()
@@ -69,135 +65,94 @@ class SubdomainHunter:
     def _crt_sh_search(self):
         """Search Certificate Transparency logs via crt.sh"""
         try:
-            print("        → Searching Certificate Transparency logs...")
+            print("    → Searching Certificate Transparency logs...")
             url = f"https://crt.sh/?q=%.{self.target}&output=json"
-            
             response = requests.get(url, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
                 for entry in data:
                     name = entry.get('name_value', '')
-                    # Handle wildcard and multiple names
                     for subdomain in name.split('\n'):
                         subdomain = subdomain.strip().replace('*.', '')
                         if subdomain.endswith(self.target):
-                            self.subdomains.add(subdomain)
-                
-                print(f"        ✓ Found {len(self.subdomains)} subdomains from CT logs")
+                            self.subdomains.add(subdomain.lower())
+                print(f"    ✓ Found {len(self.subdomains)} unique names from CT logs")
         except Exception as e:
-            print(f"        ! CT logs search error: {str(e)}")
-    
+            print(f"    ! CT logs search error: {str(e)}")
+
     def _dns_enumeration(self):
         """DNS enumeration using common subdomain wordlist"""
         common_subdomains = [
-            'www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'pop', 'ns1', 'webdisk',
-            'ns2', 'cpanel', 'whm', 'autodiscover', 'autoconfig', 'm', 'imap', 'test',
-            'ns', 'blog', 'pop3', 'dev', 'www2', 'admin', 'forum', 'news', 'vpn',
-            'ns3', 'mail2', 'new', 'mysql', 'old', 'lists', 'support', 'mobile', 'mx',
-            'static', 'docs', 'beta', 'shop', 'sql', 'secure', 'demo', 'cp', 'calendar',
-            'wiki', 'web', 'media', 'email', 'images', 'img', 'www1', 'intranet',
-            'portal', 'video', 'sip', 'dns2', 'api', 'cdn', 'stats', 'dns1', 'ns4',
-            'www3', 'dns', 'search', 'staging', 'server', 'mx1', 'chat', 'wap', 'my',
-            'svn', 'mail1', 'sites', 'proxy', 'ads', 'host', 'crm', 'cms', 'backup',
-            'mx2', 'lyncdiscover', 'info', 'apps', 'download', 'remote', 'db', 'forums',
-            'store', 'relay', 'files', 'newsletter', 'app', 'live', 'owa', 'en', 'start',
-            'sms', 'office', 'exchange', 'ipv4', 'help', 'home', 'payment', 'api-gateway'
+            'www', 'mail', 'ftp', 'localhost', 'webmail', 'smtp', 'ns1', 'cpanel', 
+            'whm', 'dev', 'admin', 'vpn', 'mysql', 'staging', 'api', 'cdn', 'test',
+            'support', 'portal', 'remote', 'db', 'app', 'owa', 'api-gateway'
         ]
-        
-        print(f"        → DNS enumeration with {len(common_subdomains)} common names...")
+        print(f"    → DNS enumeration with {len(common_subdomains)} common names...")
         found = 0
-        
         for sub in common_subdomains:
-            subdomain = f"{sub}.{self.target}"
+            subdomain = f"{sub}.{self.target}".lower()
             try:
-                # Simple DNS check using requests
-                test_url = f"http://{subdomain}"
-                requests.head(test_url, timeout=3, allow_redirects=True)
+                # Use HEAD request for speed
+                requests.head(f"http://{subdomain}", timeout=2, allow_redirects=True)
                 self.subdomains.add(subdomain)
                 found += 1
-            except:
-                pass
-        
-        print(f"        ✓ Found {found} subdomains via DNS enumeration")
-    
+            except: continue
+        print(f"    ✓ Added {found} subdomains via DNS check")
+
     def _web_archive_search(self):
         """Search web archives for historical subdomains"""
         try:
-            print("        → Searching web archives...")
+            print("    → Searching web archives (Wayback Machine)...")
             url = f"http://web.archive.org/cdx/search/cdx?url=*.{self.target}/*&output=json&collapse=urlkey"
-            
             response = requests.get(url, headers=self.headers, timeout=30)
             
             if response.status_code == 200:
                 data = response.json()
                 initial_count = len(self.subdomains)
-                
                 for entry in data[1:]:  # Skip header
                     if len(entry) > 2:
+                        # Extract hostname from the URL field
                         archived_url = entry[2]
-                        try:
-                            parsed = urlparse(archived_url)
-                            hostname = parsed.netloc
-                            if hostname.endswith(self.target):
-                                self.subdomains.add(hostname)
-                        except:
-                            pass
+                        hostname = urlparse(archived_url if "://" in archived_url else f"http://{archived_url}").netloc
+                        hostname = hostname.split(':')[0] # Remove port if present
+                        if hostname.endswith(self.target):
+                            self.subdomains.add(hostname.lower())
                 
-                new_found = len(self.subdomains) - initial_count
-                print(f"        ✓ Found {new_found} subdomains from web archives")
+                print(f"    ✓ Found {len(self.subdomains) - initial_count} new subdomains from archives")
         except Exception as e:
-            print(f"        ! Web archive search error: {str(e)}")
-    
+            print(f"    ! Web archive search error: {str(e)}")
+
     def _search_engine_dork(self):
-        """Passive search engine enumeration"""
-        # Simulate search engine results (in real implementation, use APIs)
-        print("        → Search engine dorking (passive)...")
-        
-        # Add main domain variations
-        variations = [
-            f"www.{self.target}",
-            f"api.{self.target}",
-            f"dev.{self.target}",
-            f"staging.{self.target}",
-            f"prod.{self.target}"
-        ]
-        
+        """Passive search engine enumeration (Logic preserved)"""
+        print("    → Search engine dorking (passive variations)...")
+        variations = ['www', 'api', 'dev', 'staging', 'prod']
         for var in variations:
-            self.subdomains.add(var)
-    
+            self.subdomains.add(f"{var}.{self.target}".lower())
+
     def _validate_subdomains(self):
         """Validate discovered subdomains are responsive"""
-        print(f"        → Validating {len(self.subdomains)} discovered subdomains...")
-        
+        print(f"    → Validating {len(self.subdomains)} total discovered entries...")
         valid = set()
-        
         for subdomain in self.subdomains:
+            if not subdomain: continue
             try:
-                # Try both HTTP and HTTPS
-                for scheme in ['https', 'http']:
-                    url = f"{scheme}://{subdomain}"
-                    try:
-                        response = requests.head(url, timeout=5, allow_redirects=True, verify=False)
-                        if response.status_code < 500:  # Accept any non-server-error response
-                            valid.add(subdomain)
-                            break
-                    except:
-                        continue
-            except:
-                pass
-        
-        print(f"        ✓ Validated {len(valid)} active subdomains")
+                # Use a single check with verify=False to handle all cert states
+                url = f"http://{subdomain}"
+                response = requests.get(url, timeout=4, verify=False, allow_redirects=True)
+                if response.status_code < 500:
+                    valid.add(subdomain)
+            except: continue
+        print(f"    ✓ Validated {len(valid)} active subdomains")
         return valid
-    
+
     def _save_results(self, subdomains):
         """Save subdomain results"""
-        output_file = self.workspace / "subdomains.txt"
-        with open(output_file, 'w') as f:
-            for subdomain in sorted(subdomains):
-                f.write(f"{subdomain}\n")
+        txt_file = self.workspace / "subdomains.txt"
+        with open(txt_file, 'w') as f:
+            for sub in sorted(subdomains):
+                f.write(f"{sub}\n")
         
-        # Also save as JSON
         json_file = self.workspace / "subdomains.json"
         with open(json_file, 'w') as f:
             json.dump({
@@ -205,3 +160,13 @@ class SubdomainHunter:
                 'total_found': len(subdomains),
                 'subdomains': sorted(list(subdomains))
             }, f, indent=2)
+        print(f"\n💾 Results saved to: {self.workspace}/")
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("Usage: python subdomain_hunter.py <domain>")
+        sys.exit(1)
+    
+    hunter = SubdomainHunter(sys.argv[1], Path("revuex_workspace"))
+    hunter.discover()
