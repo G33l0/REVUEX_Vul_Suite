@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - Safety Checks
 Validation and safety enforcement for all scanners
 
