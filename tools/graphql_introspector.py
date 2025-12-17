@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - GraphQL Introspector
 Advanced GraphQL Security Testing & Introspection
 
