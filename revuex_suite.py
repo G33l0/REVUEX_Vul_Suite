@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 REVUEX Vul Suite v2.0 - Root Launcher
-Integrated with SSTI Engine, JWT Analyzer, CSRF, and Dependency Checker
+Integrated with SSTI Engine, JWT Analyzer, CSRF, Dependency Checker, and Auto-Reporting
 """
 
 import sys
@@ -36,7 +36,7 @@ class RealTimeStatusDisplay:
         self.scanners_completed = 0
         self.total_scanners = 0
         self.findings_count = 0
-        self.start_time = None
+        self.findings_stats = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
 
     def print_banner(self):
         banner = f"""{Fore.CYAN}
@@ -57,6 +57,19 @@ class RealTimeStatusDisplay:
         self.scanners_completed += 1
         print(f"{Fore.BLUE}[{self.scanners_completed}/{self.total_scanners}] {scanner_name} starting...")
 
+    def update_stats(self, results):
+        """Helper to categorize findings for the report generator"""
+        if isinstance(results, list):
+            for item in results:
+                sev = item.get('severity', 'low').lower()
+                if sev in self.findings_stats:
+                    self.findings_stats[sev] += 1
+        elif isinstance(results, dict):
+            for item in results.get('vulnerabilities', []):
+                sev = item.get('severity', 'low').lower()
+                if sev in self.findings_stats:
+                    self.findings_stats[sev] += 1
+
     def complete_scanner(self, name, findings, duration):
         self.findings_count += findings
         status = f"{Fore.RED}{findings} findings" if findings else f"{Fore.GREEN}clean"
@@ -71,19 +84,22 @@ class RevuexSuite:
         self.workspace = self._create_workspace()
         self.logger = RevuexLogger(self.workspace)
         self.status = RealTimeStatusDisplay()
+        
+        # Data aggregation for reporting
+        self.all_vulnerabilities = []
+        self.recon_data = {'subdomains': [], 'technologies': {}}
 
-        # UPDATED: All tools mapped to their respective phases
         self.scanners = {
             'reconnaissance': [
                 ('SubdomainHunter', subdomain_hunter.SubdomainHunter),
                 ('TechFingerprinter', tech_fingerprinter.TechFingerprinter),
-                ('DependencyChecker', dependency_checker.DependencyChecker), # <--- New
+                ('DependencyChecker', dependency_checker.DependencyChecker),
             ],
             'authentication_jwt': [
-                ('JWTAnalyzer', jwt_analyzer.JWTAnalyzer), # <--- New
+                ('JWTAnalyzer', jwt_analyzer.JWTAnalyzer),
                 ('SessionAnalyzer', session_analyzer.SessionAnalyzer),
                 ('CORSScanner', cors_scanner.CORSScanner),
-                ('CSRFTester', csrf_tester.CSRFTester), # <--- New
+                ('CSRFTester', csrf_tester.CSRFTester),
             ],
             'injection_scanning': [
                 ('SSTIEngine', ssti_engine.SSTIEngine),
@@ -104,7 +120,7 @@ class RevuexSuite:
         }
 
     def _create_workspace(self):
-        clean_target = self.target.replace("://", "_").replace("/", "_")
+        clean_target = self.target.replace("://", "_").replace("/", "_").replace(".", "_")
         path = Path(f"scans/{clean_target}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         path.mkdir(parents=True, exist_ok=True)
         return path
@@ -119,7 +135,8 @@ class RevuexSuite:
             print(f"\n{Fore.MAGENTA}--- PHASE: {phase.upper()} ---")
             self._run_phase(phase)
 
-        print(f"\n{Fore.GREEN}SCAN COMPLETE. Findings saved to {self.workspace}")
+        # FINAL STEP: Report Generation
+        self._generate_final_report()
 
     def _run_phase(self, phase):
         for name, cls in self.scanners[phase]:
@@ -127,37 +144,59 @@ class RevuexSuite:
             try:
                 self.status.start_scanner(name)
                 
-                # SPECIAL HANDLING FOR JWT: Requires token input if not found
+                # Special cases for tool initialization
                 if name == "JWTAnalyzer":
                     token = input(f"{Fore.YELLOW}   [?] Enter JWT token for analysis (or press Enter to skip): ")
                     if not token:
-                        print(f"{Fore.YELLOW}   [!] Skipping JWT analysis (No token provided)")
+                        print(f"{Fore.YELLOW}   [!] Skipping JWT analysis")
                         continue
                     scanner = cls(self.target, [token], self.workspace, self.delay)
                 else:
                     scanner = cls(self.target, self.workspace, self.delay)
 
-                # Logic for tools with different primary method names
-                if hasattr(scanner, 'scan'):
-                    results = scanner.scan()
-                elif hasattr(scanner, 'discover'):
-                    results = scanner.discover()
-                elif hasattr(scanner, 'analyze'):
-                    results = scanner.analyze()
-                else:
-                    print(f"{Fore.RED}   [!] Error: No executable method found in {name}")
-                    continue
+                # Execute based on existing method names
+                if hasattr(scanner, 'scan'): results = scanner.scan()
+                elif hasattr(scanner, 'discover'): results = scanner.discover()
+                elif hasattr(scanner, 'analyze'): results = scanner.analyze()
+                else: continue
 
-                # Handle different return types
-                findings = 0
+                # Collect findings for reporting
+                self.status.update_stats(results)
                 if isinstance(results, list):
-                    findings = len(results)
+                    self.all_vulnerabilities.extend(results)
                 elif isinstance(results, dict):
-                    findings = len(results.get('vulnerabilities', []))
+                    self.all_vulnerabilities.extend(results.get('vulnerabilities', []))
+                    # Extract recon data if applicable
+                    if name == 'SubdomainHunter':
+                        self.recon_data['subdomains'] = results.get('subdomains', [])
 
+                findings = len(results) if isinstance(results, list) else len(results.get('vulnerabilities', []))
                 self.status.complete_scanner(name, findings, time.time() - start)
+                
+                time.sleep(self.delay)
             except Exception as e:
                 print(f"{Fore.RED}[!] Error in {name}: {str(e)}")
+
+    def _generate_final_report(self):
+        """Integration block for the ReportGenerator"""
+        print(f"\n{Fore.YELLOW}📊 Aggregating data and generating professional report...")
+        
+        report_data = {
+            'target': self.target,
+            'vulnerabilities': self.all_vulnerabilities,
+            'statistics': {
+                'findings': self.status.findings_stats
+            },
+            'reconnaissance': self.recon_data,
+            'confirmed_bugs': [v for v in self.all_vulnerabilities if v.get('confirmed')]
+        }
+
+        try:
+            generator = ReportGenerator(self.workspace)
+            report_path = generator.generate_html_report(report_data)
+            print(f"{Fore.GREEN}✅ SCAN COMPLETE. Professional report generated at: {report_path}")
+        except Exception as e:
+            print(f"{Fore.RED}[!] Failed to generate report: {str(e)}")
 
 def main():
     parser = argparse.ArgumentParser(description="REVUEX Vul Suite v2.0")
