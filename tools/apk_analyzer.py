@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-“””
+"""
 REVUEX - Android APK Analyzer
 Mobile Application Security Analysis
 
