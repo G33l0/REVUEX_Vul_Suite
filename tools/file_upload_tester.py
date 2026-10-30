@@ -240,13 +240,28 @@ class FileUploadTester:
         return b'SECURITY_TEST_FILE'
 
     def _log_vuln(self, v_type, severity, filename, desc):
+        # Honesty fix: an upload being ACCEPTED (HTTP 200 without an error word)
+        # only proves the upload filter did not reject it. It does NOT prove the
+        # file was stored in a web-accessible location, kept its name/extension,
+        # or executes (for PHP/RCE cases). Reporting these as confirmed "critical"
+        # RCE is an overclaim and a false positive when the server silently
+        # discards or sanitises the file. We therefore mark the real, confirmed
+        # fact (filter bypass / acceptance) and flag impact as unverified, with
+        # the step needed to confirm it.
         self.vulnerabilities.append({
             'type': f'File Upload - {v_type}',
             'severity': severity,
+            'confidence': 'needs-manual-verification',
+            'impact_confirmed': False,
             'url': self.target,
             'filename': filename,
             'description': desc,
-            'tags': ['file_upload', severity, v_type.lower().replace(' ', '_')]
+            'verify': ('Upload was accepted by the server. To confirm real impact, '
+                       'retrieve the uploaded file at its served URL and verify it '
+                       'is stored with its payload extension and, for code files, '
+                       'actually executes. Acceptance alone is not RCE.'),
+            'tags': ['file_upload', severity, 'unconfirmed',
+                     v_type.lower().replace(' ', '_')]
         })
         self.uploaded_files.append(filename)
 

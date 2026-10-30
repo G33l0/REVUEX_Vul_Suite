@@ -28,26 +28,53 @@ class SSTIEngine(BaseScanner):
             return {"polyglots": ["{{7*7}}", "${7*7}"], "engines": {}}
 
     def scan(self):
-        """Main scanning logic called by launcher"""
+        """Main scanning logic called by launcher.
+
+        False-positive fix: the old discovery looked for "49" (from {{7*7}}) in
+        the response. "49" appears on countless pages by chance (prices, years,
+        pixel sizes), and the check also fired when the template engine simply
+        reflected the literal "{{7*7}}" without evaluating it. We now:
+          1. use an arithmetic result that is extremely unlikely to occur by
+             chance (1733*1733 = 3003289), and
+          2. require that the computed result appears while the RAW payload does
+             NOT - i.e. the expression was actually evaluated, not echoed.
+        """
         self.logger.info(f"Scanning {self.target} for SSTI...")
-        vectors = self._load_vectors()
-        
-        # 1. Discovery Phase
-        for polyglot in vectors.get("polyglots", []):
-            # Use your BaseScanner's safe_request method
-            response = self.safe_request("GET", self.target, params={"q": polyglot})
-            
-            if response and "49" in response.text:
-                self.logger.info(f"Potential SSTI found with: {polyglot}")
-                self._identify_engine(vectors.get("engines", {}), polyglot)
+
+        # Deterministic, high-entropy arithmetic probe.
+        a, b = 1733, 1733
+        expected = str(a * b)  # 3003289
+        probes = [
+            ("{{%d*%d}}" % (a, b), "{{...}}"),
+            ("${%d*%d}" % (a, b), "${...}"),
+            ("#{%d*%d}" % (a, b), "#{...}"),
+            ("*{%d*%d}" % (a, b), "*{...}"),
+        ]
+
+        # Baseline so we don't credit a page that already contains the number.
+        base = self.safe_request("GET", self.target, params={"q": "revuex_ssti_probe"})
+        base_text = base.text if base else ""
+
+        for raw_payload, syntax in probes:
+            response = self.safe_request("GET", self.target, params={"q": raw_payload})
+            if not response:
+                continue
+            body = response.text
+            evaluated = (expected in body) and (expected not in base_text)
+            reflected_literally = raw_payload in body
+            if evaluated and not reflected_literally:
+                self.logger.info(f"SSTI evaluation confirmed with: {raw_payload}")
+                self._identify_engine(vectors=self._load_vectors().get("engines", {}),
+                                      discovery_payload=raw_payload,
+                                      expected=expected, syntax=syntax)
                 break
-        
+
         return self.vulnerabilities
 
-    def _identify_engine(self, engines, discovery_payload):
+    def _identify_engine(self, engines, discovery_payload, expected, syntax="{{...}}"):
         """Identification Phase"""
         found_name = "Generic/Unknown"
-        
+
         for name, payload in engines.items():
             response = self.safe_request("GET", self.target, params={"q": payload})
             if response and self._check_fingerprint(name, response.text):
@@ -60,7 +87,9 @@ class SSTIEngine(BaseScanner):
             "severity": "critical",
             "url": self.target,
             "description": f"Server-Side Template Injection detected ({found_name}).",
-            "evidence": f"Payload: {discovery_payload} rendered '49' in response.",
+            "evidence": (f"Payload {discovery_payload} ({syntax}) was evaluated: the "
+                         f"response contained the computed value '{expected}' while "
+                         f"the raw expression was not reflected verbatim."),
             "remediation": "Never concatenate user input directly into templates. Use static templates with variables passed as arguments."
         })
 

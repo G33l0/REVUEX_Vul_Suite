@@ -13,8 +13,10 @@ This tool is for educational purposes and authorized security testing only.
 import requests
 import re
 import json
+import math
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+from collections import Counter
 import base64
 
 class JSSecretsMiner:
@@ -213,15 +215,53 @@ class JSSecretsMiner:
         
         return None
     
+    @staticmethod
+    def _shannon_entropy(s: str) -> float:
+        """Shannon entropy per character (bits). Random secrets score high
+        (~4-6); English words, repeated chars and minifier identifiers score
+        low. Used to drop low-entropy false positives from generic patterns."""
+        if not s:
+            return 0.0
+        counts = Counter(s)
+        n = len(s)
+        return -sum((c / n) * math.log2(c / n) for c in counts.values())
+
+    # Values that look like a secret to a regex but are placeholders / examples.
+    _PLACEHOLDER_RE = re.compile(
+        r'^(?:x+|0+|1+|a+|your[_-]?|example|sample|dummy|test|changeme|'
+        r'placeholder|xxx|none|null|undefined|false|true|lorem|abcdef|'
+        r'123456|deadbeef)',
+        re.IGNORECASE)
+
+    def _is_probable_secret(self, value: str, min_entropy: float = 3.0,
+                            min_len: int = 16) -> bool:
+        """Heuristic gate for GENERIC keyword-based matches (api_key/token/
+        password), which otherwise match minified variable values, i18n strings
+        and CSS hashes. High-confidence provider patterns (AKIA, AIza, ghp_,
+        sk_live, PEM keys) bypass this and are kept as-is."""
+        if not value or len(value) < min_len:
+            return False
+        if self._PLACEHOLDER_RE.match(value):
+            return False
+        # All-same-char or clearly non-random repeated token.
+        if len(set(value)) <= 3:
+            return False
+        # A single dictionary-ish word (letters only, low entropy) is noise.
+        if value.isalpha() and self._shannon_entropy(value) < 3.2:
+            return False
+        if self._shannon_entropy(value) < min_entropy:
+            return False
+        return True
+
     def _analyze_js(self, content, findings):
         """Analyze JavaScript content for secrets"""
-        
-        # Extract API keys
+
+        # Extract API keys (generic keyword patterns -> entropy-gated)
         for pattern in self.patterns['api_keys']:
             matches = re.findall(pattern, content, re.IGNORECASE)
             for match in matches:
                 key = match[1] if isinstance(match, tuple) else match
-                if key and len(key) > 15:
+                if self._is_probable_secret(key):
                     findings['secrets']['api_keys'].append(key)
         
         # Extract AWS keys
@@ -232,12 +272,12 @@ class JSSecretsMiner:
                 if key:
                     findings['secrets']['aws_keys'].append(key)
         
-        # Extract tokens
+        # Extract tokens (generic keyword patterns -> entropy-gated)
         for pattern in self.patterns['tokens']:
             matches = re.findall(pattern, content, re.IGNORECASE)
             for match in matches:
                 token = match[1] if isinstance(match, tuple) else match
-                if token and len(token) > 15:
+                if self._is_probable_secret(token):
                     findings['secrets']['tokens'].append(token)
         
         # Extract JWT tokens
@@ -266,13 +306,24 @@ class JSSecretsMiner:
             matches = re.findall(pattern, content)
             findings['secrets']['stripe_keys'].extend(matches)
         
-        # Extract passwords (carefully - high false positive rate)
+        # Extract passwords (very high false positive rate -> strict filtering).
+        # A hardcoded password is only interesting if it is not a placeholder and
+        # not an obvious form-field reference. We require moderate length/entropy
+        # and skip values that merely echo the key name or are UI strings.
+        pwd_fp = {'password', 'passwd', 'pwd', '******', 'current-password',
+                  'new-password', 'your-password', 'enter password',
+                  'confirmpassword', 'confirm_password'}
         for pattern in self.patterns['passwords']:
             matches = re.findall(pattern, content, re.IGNORECASE)
             for match in matches:
                 pwd = match[1] if isinstance(match, tuple) else match
-                # Filter out common false positives
-                if pwd and len(pwd) > 5 and pwd not in ['password', 'Password', '******']:
+                if not pwd or pwd.lower() in pwd_fp:
+                    continue
+                if self._PLACEHOLDER_RE.match(pwd):
+                    continue
+                # Keep short-but-plausible passwords (>=8) only if they are not
+                # single dictionary words; keep longer ones via entropy gate.
+                if len(pwd) >= 8 and not (pwd.isalpha() and self._shannon_entropy(pwd) < 3.0):
                     findings['secrets']['passwords'].append(pwd)
         
         # Extract private keys

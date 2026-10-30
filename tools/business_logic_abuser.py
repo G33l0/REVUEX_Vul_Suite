@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 REVUEX - Business Logic Workflow Abuser
-Critical Business Logic Vulnerability Detection
+Business Logic Test Playbook Generator
 
 Author: G33L0
 Telegram: @x0x0h33l0
@@ -10,651 +10,320 @@ DISCLAIMER:
 This tool is for educational purposes and authorized security testing only.
 Business logic testing can affect real transactions - use ONLY in test environments.
 NEVER test on production payment systems without explicit authorization.
+
+IMPORTANT (v2.1 false-positive fix):
+Business logic flaws (price tampering, coupon stacking, checkout/step bypass,
+refund abuse, etc.) depend entirely on an application's authenticated,
+app-specific workflow. They CANNOT be confirmed by sending a payload to a base
+URL and inspecting a generic response. The previous version of this module
+*fabricated* a fixed set of CRITICAL/HIGH findings for every target, complete
+with fake "request"/"response"/"evidence" fields describing attacks that were
+never performed. That produced guaranteed false positives.
+
+This module now emits a structured *manual test playbook*: candidate parameters,
+scenarios to try, how to recognise a real issue, and remediation. These items
+are returned as `manual_checks` with severity "info" and
+`confidence: "manual-verification-required"`. They are deliberately NOT added to
+the confirmed `vulnerabilities` list, so they never inflate a scan's finding
+count or appear as proven bugs. A tester confirms each one by hand against the
+live workflow and promotes it to a finding only with real evidence.
 """
 
-import requests
 import time
 import json
 import re
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-import hashlib
-from decimal import Decimal
+from typing import List, Dict, Any
+from urllib.parse import urlparse
+
 
 class BusinessLogicAbuser:
     """
-    Business Logic Vulnerability Scanner
+    Business Logic test-playbook generator.
 
-    Features:
-    - Payment flow bypass detection
-    - Price manipulation testing
-    - Coupon/discount stacking
-    - Checkout flow bypass
-    - Multi-step form bypass
-    - State transition manipulation
-    - Quantity/total manipulation
-    - Refund abuse detection
-    - Subscription upgrade bypass
-    - Free trial extension
+    Produces manual-verification guidance for common business logic flaw
+    classes. Does not assert any flaw exists without tester-supplied evidence.
     """
 
     def __init__(self, target: str, workspace: Path, delay: float = 5.0):
-        """
-        Initialize Business Logic Abuser
-        
-        Args:
-            target: Target base URL
-            workspace: Workspace directory
-            delay: Delay between requests (default: 5 seconds)
-        """
         self.target = target
         self.workspace = Path(workspace)
         self.delay = delay
-        
-        # Safety limits
-        self.max_requests = 100
-        self.request_count = 0
+
         self.timeout = 10
-        
-        # CRITICAL: Sandbox detection
-        self.is_production = self._detect_production()
-        if self.is_production:
-            print("⚠️  WARNING: Production environment detected!")
-            print("    Business logic testing should only be done in sandbox/test environments")
-            print("    Exiting for safety...")
-            exit(1)
-        
+
+        # Honesty note: production detection is a weak heuristic and must not be
+        # relied on as a safety control. Keep the warning but do not hard-exit on
+        # a guess, so the operator stays responsible for choosing a safe target.
+        if self._looks_like_production():
+            print("⚠️  WARNING: Target may be a production environment.")
+            print("    Only run business logic tests against systems you are")
+            print("    explicitly authorised to test (ideally sandbox/staging).")
+
         self.headers = {
             'User-Agent': 'REVUEX-WorkflowAbuser/1.0 (Security Research; +https://github.com/G33L0)',
             'Accept': 'application/json, text/html, */*'
         }
-        
-        self.vulnerabilities = []
-        
-        # Common price/amount parameter names
-        self.price_params = [
-            'price', 'amount', 'total', 'subtotal', 'cost',
-            'value', 'payment', 'charge', 'fee', 'discount'
-        ]
-        
-        # Common quantity parameter names
-        self.quantity_params = [
-            'quantity', 'qty', 'count', 'amount', 'number', 'items'
-        ]
-        
-        # State/step parameter names
-        self.state_params = [
-            'step', 'stage', 'state', 'status', 'phase', 'level'
-        ]
 
-    def _detect_production(self) -> bool:
-        """Detect if target is production environment"""
-        production_indicators = [
-            'production', 'prod', 'live', 'www',
-            'api.example.com', 'store.example.com'
-        ]
-        
-        test_indicators = [
-            'test', 'staging', 'sandbox', 'dev', 'development',
-            'qa', 'demo', 'localhost', '127.0.0.1'
-        ]
-        
-        target_lower = self.target.lower()
-        
-        # Check for test indicators first
-        for indicator in test_indicators:
-            if indicator in target_lower:
-                return False
-        
-        # Check for production indicators
-        for indicator in production_indicators:
-            if indicator in target_lower:
-                return True
-        
-        # Default to production for safety
+        # Confirmed findings only (populated by a tester promoting a manual check
+        # with real evidence, or by future evidence-based probes). Empty by default.
+        self.vulnerabilities: List[Dict[str, Any]] = []
+
+        # Manual-verification guidance (NOT confirmed vulnerabilities).
+        self.manual_checks: List[Dict[str, Any]] = []
+
+        self.price_params = ['price', 'amount', 'total', 'subtotal', 'cost',
+                             'value', 'payment', 'charge', 'fee', 'discount']
+        self.quantity_params = ['quantity', 'qty', 'count', 'number', 'items']
+        self.state_params = ['step', 'stage', 'state', 'status', 'phase', 'level']
+
+    def _looks_like_production(self) -> bool:
+        t = self.target.lower()
+        test_indicators = ['test', 'staging', 'sandbox', 'dev', 'development',
+                           'qa', 'demo', 'localhost', '127.0.0.1']
+        if any(i in t for i in test_indicators):
+            return False
         return True
 
     def scan(self) -> List[Dict[str, Any]]:
-        """Main business logic scanning method"""
         print(f"\n{'='*60}")
-        print(f"💼 REVUEX Business Logic Workflow Abuser")
+        print(f"💼 REVUEX Business Logic Playbook")
         print(f"{'='*60}")
         print(f"Target: {self.target}")
-        print(f"Environment: TEST/SANDBOX ✓")
-        print(f"Safety Delay: {self.delay}s")
-        print(f"Max Requests: {self.max_requests}")
         print(f"{'='*60}\n")
-        
-        print("⚠️  CRITICAL SAFETY NOTES:")
-        print("   • This tool tests BUSINESS LOGIC flaws")
-        print("   • NEVER run on production payment systems")
-        print("   • Use ONLY in authorized test/sandbox environments")
-        print("   • No actual transactions will be completed")
-        print("   • All tests are detection-only\n")
-        
-        # Test 1: Payment amount manipulation
-        print("💰 Test 1: Payment Amount Manipulation")
-        self._test_payment_manipulation()
-        time.sleep(self.delay)
-        
-        # Test 2: Coupon/discount stacking
-        print("\n🎟️  Test 2: Coupon/Discount Stacking")
-        self._test_coupon_stacking()
-        time.sleep(self.delay)
-        
-        # Test 3: Checkout flow bypass
-        print("\n🛒 Test 3: Checkout Flow Bypass")
-        self._test_checkout_bypass()
-        time.sleep(self.delay)
-        
-        # Test 4: Quantity manipulation
-        print("\n📦 Test 4: Quantity/Total Manipulation")
-        self._test_quantity_manipulation()
-        time.sleep(self.delay)
-        
-        # Test 5: State transition abuse
-        print("\n🔄 Test 5: State Transition Manipulation")
-        self._test_state_manipulation()
-        time.sleep(self.delay)
-        
-        # Test 6: Multi-step form bypass
-        print("\n📋 Test 6: Multi-Step Form Bypass")
-        self._test_multistep_bypass()
-        time.sleep(self.delay)
-        
-        # Test 7: Refund/credit abuse
-        print("\n💸 Test 7: Refund/Credit Abuse")
-        self._test_refund_abuse()
-        time.sleep(self.delay)
-        
-        # Test 8: Subscription manipulation
-        print("\n📅 Test 8: Subscription Manipulation")
-        self._test_subscription_abuse()
-        
-        # Save results
+        print("ℹ️  This module generates a MANUAL test playbook.")
+        print("    Nothing here is reported as a confirmed vulnerability.")
+        print("    Confirm each item by hand against the live workflow and add")
+        print("    real request/response evidence before treating it as a bug.\n")
+
+        self._playbook_payment_manipulation()
+        self._playbook_coupon_stacking()
+        self._playbook_checkout_bypass()
+        self._playbook_quantity_manipulation()
+        self._playbook_state_manipulation()
+        self._playbook_multistep_bypass()
+        self._playbook_refund_abuse()
+        self._playbook_subscription_abuse()
+
         self._save_results()
-        
+
         print(f"\n{'='*60}")
-        print(f"✅ Scan Complete")
-        print(f"Vulnerabilities: {len(self.vulnerabilities)}")
-        print(f"Requests: {self.request_count}/{self.max_requests}")
+        print(f"✅ Playbook generated")
+        print(f"Confirmed vulnerabilities: {len(self.vulnerabilities)}")
+        print(f"Manual checks to verify:   {len(self.manual_checks)}")
         print(f"{'='*60}\n")
-        
+
+        # Return only confirmed findings (empty unless real evidence was added),
+        # keeping the suite's vulnerability count free of false positives.
         return self.vulnerabilities
 
-    def _test_payment_manipulation(self):
-        """Test payment amount manipulation"""
-        print("   Testing price parameter tampering...")
-        
-        # Simulate finding a product endpoint
-        test_scenarios = [
-            {
-                'name': 'Negative Price',
-                'original_price': '99.99',
-                'manipulated_price': '-99.99',
-                'description': 'Negative price values could result in credits'
-            },
-            {
-                'name': 'Zero Price',
-                'original_price': '99.99',
-                'manipulated_price': '0.00',
-                'description': 'Zero price bypasses payment completely'
-            },
-            {
-                'name': 'Minimal Price',
-                'original_price': '99.99',
-                'manipulated_price': '0.01',
-                'description': 'Minimal price for expensive items'
-            },
-            {
-                'name': 'Decimal Overflow',
-                'original_price': '99.99',
-                'manipulated_price': '99999999.99',
-                'description': 'Large values could cause integer overflow'
-            }
-        ]
-        
-        for scenario in test_scenarios:
-            print(f"   → {scenario['name']}...")
-            
-            vuln = {
-                'type': f'Business Logic - Payment Manipulation ({scenario["name"]})',
-                'severity': 'critical',
-                'url': self.target,
-                'original_value': scenario['original_price'],
-                'manipulated_value': scenario['manipulated_price'],
-                'description': f'Payment amount can be manipulated. {scenario["description"]}. Application does not validate price integrity server-side.',
-                'evidence': f'Price parameter accepts {scenario["manipulated_price"]} instead of {scenario["original_price"]}',
-                
-                'steps_to_reproduce': [
-                    "Navigate to product page",
-                    f"Add item to cart (original price: ${scenario['original_price']})",
-                    "Intercept checkout request",
-                    f"Modify price parameter to: {scenario['manipulated_price']}",
-                    "Submit modified request",
-                    "Payment processed with manipulated amount",
-                    "Receive product for wrong price or get refund"
-                ],
-                
-                'request': f"""POST /api/checkout HTTP/1.1
-Host: {urlparse(self.target).netloc}
-Content-Type: application/json
-
-{{
-"items": [
-{{
-"product_id": "12345",
-"name": "Premium Product",
-"price": {scenario['manipulated_price']},  <– MANIPULATED
-"quantity": 1
-}}
-],
-"total": {scenario['manipulated_price']}  <– MANIPULATED
-}}""",
-                'response': f"""HTTP/1.1 200 OK
-Content-Type: application/json
-
-{{
-"order_id": "ORD-789",
-"status": "success",
-"total_charged": {scenario['manipulated_price']},
-"message": "Payment successful"
-}}
-
-🚨 CRITICAL: Server accepted manipulated price!""",
-                'poc': f"""#!/usr/bin/env python3
-# Payment Manipulation PoC - {scenario['name']}
-
-import requests
-import json
-
-target = "{self.target}/api/checkout"
-
-# Original legitimate order
-original_order = {{
-"items": [{{
-"product_id": "12345",
-"price": {scenario['original_price']},
-"quantity": 1
-}}],
-"total": {scenario['original_price']}
-}}
-
-# Manipulated order
-manipulated_order = {{
-"items": [{{
-"product_id": "12345",
-"price": {scenario['manipulated_price']},  # MANIPULATED
-"quantity": 1
-}}],
-"total": {scenario['manipulated_price']}  # MANIPULATED
-}}
-
-print("[*] Attempting payment manipulation…")
-print(f"[*] Original price: ${scenario['original_price']}")
-print(f"[*] Manipulated price: ${scenario['manipulated_price']}")
-
-response = requests.post(target, json=manipulated_order)
-
-if response.status_code == 200:
-    data = response.json()
-    print(f"\\n[+] ✓ VULNERABLE!")
-    print(f"[+] Order accepted: {{data.get('order_id')}}")
-    print(f"[+] Amount charged: ${{data.get('total_charged')}}")
-    print(f"\\n[!] Impact: Purchase ${scenario['original_price']} item for ${scenario['manipulated_price']}")
-else:
-    print("[-] Server rejected manipulated price")
-""",
-                'before_state': f'Product costs ${scenario["original_price"]}',
-                'after_state': f'Product purchased for ${scenario["manipulated_price"]} - Complete payment bypass',
-                
-                'attack_path': [
-                    'Identify checkout/payment endpoint',
-                    'Add expensive item to cart',
-                    'Intercept checkout request',
-                    'Modify price/total parameters',
-                    'Submit manipulated request',
-                    'Payment processed with wrong amount',
-                    'Receive product for free or minimal cost',
-                    'Repeat for unlimited free products',
-                    'Potential for massive financial loss'
-                ],
-                
-                'remediation': [
-                    '🚨 CRITICAL: NEVER trust client-side price values',
-                    'ALWAYS calculate totals server-side',
-                    'Store product prices in database',
-                    'Retrieve prices from database during checkout',
-                    'Validate price integrity: db_price == submitted_price',
-                    'Use signed/encrypted price tokens',
-                    'Implement price validation before payment',
-                    'Log all price modifications',
-                    'Add alerts for suspicious pricing patterns',
-                    'Use decimal types for currency (not float)',
-                    'Implement rate limiting on checkout',
-                    'Add manual review for large discrepancies',
-                    'Use payment gateway validation',
-                    'Implement fraud detection',
-                    'Regular audit of payment flows'
-                ],
-                
-                'real_world_impact': """Real-World Payment Manipulation Breaches:
-
-1. Airline Ticket Bypass (2018): $50,000 bounty
-- Price parameter tampered
-- Free business class tickets
-- Thousands of fraudulent bookings
-2. E-commerce Platform (2019): $25,000 bounty
-- Negative prices created credits
-- Drained merchant accounts
-3. Gaming Platform (2020): $15,000 bounty
-- In-game currency manipulation
-- Free premium items
-4. Subscription Service (2021): $20,000 bounty
-- Annual plan for monthly price
-- Mass subscription fraud""",
-  
-             'business_impact': [
-                 f'Direct financial loss: ${scenario["original_price"]} per transaction',
-                 'Unlimited exploitation possible',
-                 'Inventory loss without payment',
-                 'Merchant account chargebacks',
-                 'Payment processor fees lost',
-                 'Potential regulatory fines',
-                 'Reputational damage',
-                 'Loss of customer trust'
-             ],
-             
-             'tags': ['business_logic', 'critical', 'payment', 'price_manipulation']
-            }
-         
-            self.vulnerabilities.append(vuln)
-            print(f"      ✓ Vulnerability documented: {scenario['name']}")
-      
-        print(f"\n   ✓ Payment manipulation tests complete ({len(test_scenarios)} scenarios)")
-
-    def _test_coupon_stacking(self):
-        """Test coupon/discount stacking"""
-        print("   Testing coupon stacking vulnerabilities…")
-       
-        vuln = {
-            'type': 'Business Logic - Coupon Stacking',
-            'severity': 'high',
+    def _add_manual_check(self, check_type: str, scenarios: List[str],
+                          how_to_confirm: str, remediation: List[str],
+                          tags: List[str]):
+        self.manual_checks.append({
+            'type': check_type,
+            'severity': 'info',
+            'confidence': 'manual-verification-required',
             'url': self.target,
-            'description': 'Multiple discount codes can be applied simultaneously, resulting in excessive discounts or negative totals',
-            'evidence': 'Successfully applied 3+ coupons in single transaction',
-            
-            'steps_to_reproduce': [
-                "Navigate to checkout page",
-                "Add items to cart (Total: $100)",
-                "Apply first coupon: SAVE20 (20% off)",
-                "Apply second coupon: WELCOME10 (10% off)",
-                "Apply third coupon: FREESHIP (shipping discount)",
-                "All coupons accepted simultaneously",
-                "Final total: $0.00 or negative",
-                "Complete free checkout"
+            'scenarios_to_try': scenarios,
+            'how_to_confirm': how_to_confirm,
+            'remediation': remediation,
+            'tags': tags + ['manual', 'unconfirmed'],
+        })
+        print(f"   • Playbook item added: {check_type}")
+
+    def _playbook_payment_manipulation(self):
+        print("💰 Payment amount manipulation")
+        self._add_manual_check(
+            'Business Logic - Payment/Price Manipulation',
+            [
+                f"Candidate price params: {', '.join(self.price_params)}",
+                "Set price to a negative value (e.g. -99.99) and check if a credit is issued",
+                "Set price to 0.00 and check if the order completes free",
+                "Set price to 0.01 on an expensive item",
+                "Send a very large value (e.g. 99999999.99) to probe overflow handling",
             ],
-            
-            'poc': """#!/usr/bin/env python3
-# Coupon Stacking PoC
-
-import requests
-
-target = "https://example.com/api/checkout"
-
-order = {
-"items": [{"id": "123", "price": 100, "qty": 1}],
-"coupons": [
-"SAVE20",    # 20% off
-"WELCOME10", # 10% off
-"FREESHIP",  # Free shipping
-"FIRSTBUY",  # First purchase discount
-"LOYALTY25"  # Loyalty discount
-],
-"total": 100
-}
-
-response = requests.post(target, json=order)
-
-if response.status_code == 200:
-    data = response.json()
-    final_total = data.get('total')
-    print(f"[+] Original: $100")
-    print(f"[+] Final: ${final_total}")
-    
-    if final_total <= 0:
-        print("[+] ✓ CRITICAL: Free or negative total!")
-""",
-            'remediation': [
-                'Limit to ONE coupon per transaction',
-                'Implement coupon exclusivity rules',
-                'Validate minimum order amount',
-                'Prevent negative totals',
-                'Check coupon compatibility',
-                'Rate limit coupon usage per user',
-                'Implement fraud detection',
-                'Manual review for high-value discounts'
+            how_to_confirm=(
+                "Place a legitimate order and record the server-calculated total. "
+                "Replay the checkout with the price/total parameter modified. A real "
+                "flaw exists ONLY if the server CHARGES the modified amount (confirm "
+                "in the order record / payment processor), not merely if it returns "
+                "HTTP 200. Capture both the original and tampered request/response."
+            ),
+            remediation=[
+                "Recalculate all prices/totals server-side from authoritative data",
+                "Never trust client-supplied price, total, or currency fields",
+                "Reject negative and zero amounts; validate ranges",
             ],
-            
-            'tags': ['business_logic', 'high', 'coupon', 'discount']
-        }
-        
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Coupon stacking vulnerability documented")
+            tags=['business_logic', 'payment', 'price_manipulation'],
+        )
 
-    def _test_checkout_bypass(self):
-        """Test checkout flow bypass"""
-        print("   Testing checkout flow bypass...")
-        
-        vuln = {
-            'type': 'Business Logic - Checkout Flow Bypass',
-            'severity': 'critical',
-            'url': self.target,
-            'description': 'Checkout steps can be skipped, bypassing payment verification and shipping information',
-            'evidence': 'Successfully skipped from cart directly to order confirmation',
-            
-            'steps_to_reproduce': [
-                "Add item to cart",
-                "Note checkout flow: Cart → Shipping → Payment → Confirmation",
-                "Skip directly to confirmation endpoint",
-                "POST /api/order/confirm without payment",
-                "Order created without payment",
-                "Product shipped for free"
+    def _playbook_coupon_stacking(self):
+        print("🎟️  Coupon/discount stacking")
+        self._add_manual_check(
+            'Business Logic - Coupon/Discount Stacking',
+            [
+                "Apply multiple coupon codes in one order",
+                "Re-apply the same single-use coupon repeatedly",
+                "Combine exclusive promotions that should be mutually exclusive",
+                "Check whether discounts can drive the total to <= 0",
             ],
-            
-            'poc': """#!/usr/bin/env python3
-# Checkout Flow Bypass PoC
-
-import requests
-
-# Normal flow: cart → shipping → payment → confirm
-# Bypass: cart → confirm (skip payment)
-
-target = "https://example.com/api/order/confirm"
-
-order = {
-"cart_id": "abc123",
-"items": [{"id": "789", "qty": 1}],
-# No payment information!
-}
-
-response = requests.post(target, json=order)
-
-if response.status_code == 200:
-    print("[+] ✓ Order created without payment!")
-    print(f"[+] Order ID: {response.json().get('order_id')}")
-""",
-            'remediation': [
-                'Validate ALL steps completed',
-                'Check payment status before order creation',
-                'Use server-side state validation',
-                'Implement session-based flow control',
-                'Verify payment confirmation',
-                'Cannot skip required steps'
+            how_to_confirm=(
+                "Confirm the server-side total actually reflects the stacked "
+                "discounts and that the order is accepted at that total. A 200 "
+                "response alone is not evidence."
+            ),
+            remediation=[
+                "Enforce one coupon (or explicit compatibility rules) server-side",
+                "Prevent negative totals; enforce minimum order amounts",
+                "Track per-user coupon usage",
             ],
-            
-            'tags': ['business_logic', 'critical', 'checkout', 'bypass']
-        }
-        
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Checkout bypass vulnerability documented")
+            tags=['business_logic', 'coupon', 'discount'],
+        )
 
-    def _test_quantity_manipulation(self):
-        """Test quantity manipulation"""
-        print("   Testing quantity/total manipulation...")
-        
-        scenarios = [
-            ('Negative Quantity', '-10', 'Creates credits instead of charges'),
-            ('Zero Quantity', '0', 'Free items with zero quantity'),
-            ('Overflow Quantity', '999999999', 'Integer overflow potential')
-        ]
-        
-        for name, qty, description in scenarios:
-            vuln = {
-                'type': f'Business Logic - Quantity Manipulation ({name})',
-                'severity': 'high',
-                'url': self.target,
-                'manipulated_quantity': qty,
-                'description': f'{description}. Quantity validation missing or insufficient.',
-                
-                'remediation': [
-                    'Validate quantity > 0',
-                    'Set maximum quantity limits',
-                    'Use proper integer validation',
-                    'Recalculate totals server-side',
-                    'Check inventory availability'
-                ],
-                
-                'tags': ['business_logic', 'quantity']
-            }
-            
-            self.vulnerabilities.append(vuln)
-            print(f"   → {name} documented")
-        
-        print("   ✓ Quantity manipulation tests complete")
+    def _playbook_checkout_bypass(self):
+        print("🛒 Checkout flow bypass")
+        self._add_manual_check(
+            'Business Logic - Checkout Flow Bypass',
+            [
+                "Map the normal flow (cart → shipping → payment → confirm)",
+                "POST directly to the confirmation/order-creation endpoint, skipping payment",
+                "Replay a confirmation request without a valid payment token",
+            ],
+            how_to_confirm=(
+                "A real flaw requires that an order is actually created in a paid "
+                "state without a completed payment. Verify in the order/admin view, "
+                "not from the HTTP status code alone."
+            ),
+            remediation=[
+                "Validate that all required prior steps completed, server-side",
+                "Verify payment status before creating/fulfilling an order",
+                "Use server-managed session state for flow control",
+            ],
+            tags=['business_logic', 'checkout', 'bypass'],
+        )
 
-    def _test_state_manipulation(self):
-        """Test state transition manipulation"""
-        print("   Testing state transition abuse...")
-        
-        vuln = {
-            'type': 'Business Logic - State Transition Manipulation',
-            'severity': 'high',
-            'url': self.target,
-            'description': 'Order states can be manipulated, allowing status changes without proper authorization',
-            'evidence': 'Changed order from "pending" to "shipped" without payment',
-            
-            'steps_to_reproduce': [
-                "Create order (state: pending)",
-                "Intercept state update request",
-                "Change state to 'shipped' or 'completed'",
-                "Bypass payment requirement",
-                "Receive product without paying"
+    def _playbook_quantity_manipulation(self):
+        print("📦 Quantity/total manipulation")
+        self._add_manual_check(
+            'Business Logic - Quantity Manipulation',
+            [
+                f"Candidate quantity params: {', '.join(self.quantity_params)}",
+                "Negative quantity (e.g. -10) to probe for credits",
+                "Zero quantity to probe for free items",
+                "Very large quantity (e.g. 999999999) to probe overflow / inventory checks",
             ],
-            
-            'remediation': [
-                'Validate state transitions server-side',
-                'Implement state machine with valid transitions only',
-                'Check payment status before shipping states',
-                'Use server-side authorization for state changes',
-                'Audit all state modifications'
+            how_to_confirm=(
+                "Confirm the final charged amount or inventory change reflects the "
+                "manipulated quantity server-side."
+            ),
+            remediation=[
+                "Validate quantity is a positive integer within sane limits",
+                "Recalculate totals server-side; verify inventory availability",
             ],
-            
-            'tags': ['business_logic', 'state', 'workflow']
-        }
-        
-        self.vulnerabilities.append(vuln)
-        print("   ✓ State manipulation vulnerability documented")
+            tags=['business_logic', 'quantity'],
+        )
 
-    def _test_multistep_bypass(self):
-        """Test multi-step form bypass"""
-        print("   Testing multi-step form bypass...")
-        
-        vuln = {
-            'type': 'Business Logic - Multi-Step Form Bypass',
-            'severity': 'medium',
-            'url': self.target,
-            'description': 'Multi-step registration/checkout forms can be bypassed by skipping validation steps',
-            
-            'remediation': [
-                'Validate all previous steps completed',
-                'Use server-side session tracking',
-                'Cannot proceed without required fields',
-                'Implement step dependencies'
+    def _playbook_state_manipulation(self):
+        print("🔄 State transition manipulation")
+        self._add_manual_check(
+            'Business Logic - State Transition Manipulation',
+            [
+                f"Candidate state params: {', '.join(self.state_params)}",
+                "Attempt to move an order from 'pending' to 'shipped'/'completed' directly",
+                "Attempt unauthorized status changes via the update endpoint",
             ],
-            
-            'tags': ['business_logic', 'form', 'bypass']
-        }
-        
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Multi-step bypass documented")
+            how_to_confirm=(
+                "Confirm the state actually changed server-side without the "
+                "required authorization or payment, via the order record."
+            ),
+            remediation=[
+                "Enforce a server-side state machine with valid transitions only",
+                "Require authorization and payment checks before privileged states",
+                "Audit all state modifications",
+            ],
+            tags=['business_logic', 'state', 'workflow'],
+        )
 
-    def _test_refund_abuse(self):
-        """Test refund/credit abuse"""
-        print("   Testing refund abuse scenarios...")
-        
-        vuln = {
-            'type': 'Business Logic - Refund Abuse',
-            'severity': 'high',
-            'url': self.target,
-            'description': 'Refund process can be abused to generate credits or receive double refunds',
-            
-            'remediation': [
-                'Track refund status per order',
-                'Limit refunds to original payment amount',
-                'Prevent multiple refunds for same order',
-                'Implement refund cooldown period',
-                'Manual review for high-value refunds'
+    def _playbook_multistep_bypass(self):
+        print("📋 Multi-step form bypass")
+        self._add_manual_check(
+            'Business Logic - Multi-Step Form Bypass',
+            [
+                "Skip intermediate steps of a multi-step form/registration",
+                "Submit the final step directly with forged prior-step data",
             ],
-            
-            'tags': ['business_logic', 'refund']
-        }
-        
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Refund abuse documented")
+            how_to_confirm=(
+                "Confirm the final action succeeds despite skipped validation, "
+                "server-side."
+            ),
+            remediation=[
+                "Track completed steps server-side; enforce step dependencies",
+                "Do not trust client-supplied step/stage indicators",
+            ],
+            tags=['business_logic', 'form', 'bypass'],
+        )
 
-    def _test_subscription_abuse(self):
-        """Test subscription manipulation"""
-        print("   Testing subscription manipulation...")
-        
-        vuln = {
-            'type': 'Business Logic - Subscription Manipulation',
-            'severity': 'high',
-            'url': self.target,
-            'description': 'Subscription tiers can be upgraded without proper payment verification',
-            
-            'remediation': [
-                'Verify payment before tier upgrade',
-                'Validate subscription status',
-                'Implement billing cycle checks',
-                'Prevent free trial extension abuse',
-                'Rate limit subscription changes'
+    def _playbook_refund_abuse(self):
+        print("💸 Refund/credit abuse")
+        self._add_manual_check(
+            'Business Logic - Refund Abuse',
+            [
+                "Request a refund twice for the same order",
+                "Request a refund exceeding the original payment",
+                "Probe for credits generated by refund of a zero/negative order",
             ],
-            
-            'tags': ['business_logic', 'subscription']
-        }
-        
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Subscription abuse documented")
+            how_to_confirm=(
+                "Confirm a duplicate or excess refund is actually issued (ledger / "
+                "payment processor), not merely accepted at the HTTP layer."
+            ),
+            remediation=[
+                "Track refund status per order; prevent duplicate refunds",
+                "Cap refunds at the original captured amount",
+                "Manual review for high-value refunds",
+            ],
+            tags=['business_logic', 'refund'],
+        )
+
+    def _playbook_subscription_abuse(self):
+        print("📅 Subscription manipulation")
+        self._add_manual_check(
+            'Business Logic - Subscription Manipulation',
+            [
+                "Upgrade a subscription tier without a corresponding payment",
+                "Extend a free trial by replaying/resetting trial state",
+                "Pay a monthly price for an annual plan via parameter tampering",
+            ],
+            how_to_confirm=(
+                "Confirm the account actually gains the higher tier / extended "
+                "trial server-side without valid payment."
+            ),
+            remediation=[
+                "Verify payment before any tier upgrade",
+                "Server-side trial eligibility tracking; rate-limit plan changes",
+            ],
+            tags=['business_logic', 'subscription'],
+        )
 
     def _save_results(self):
-        """Save scan results"""
         output_dir = self.workspace / "business_logic_tests"
-        output_dir.mkdir(exist_ok=True)
-        
+        output_dir.mkdir(exist_ok=True, parents=True)
+
         safe_target = re.sub(r'[^\w\-]', '_', self.target)
         output_file = output_dir / f"{safe_target}_business_logic.json"
-        
+
         with open(output_file, 'w') as f:
             json.dump({
                 'scanner': 'BusinessLogicAbuser',
                 'target': self.target,
-                'environment': 'TEST/SANDBOX',
-                'vulnerabilities': self.vulnerabilities
+                'note': ('Business logic checks require manual verification; '
+                         'items below are guidance, not confirmed findings.'),
+                'vulnerabilities': self.vulnerabilities,
+                'manual_checks': self.manual_checks,
             }, f, indent=2)
-        
+
         print(f"\n💾 Saved: {output_file}")
+
 
 if __name__ == "__main__":
     import sys
@@ -662,7 +331,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python business_logic_abuser.py <target_url>")
         print("Example: python business_logic_abuser.py https://sandbox.example.com")
-        print("\n⚠️  WARNING: Use ONLY on test/sandbox environments!")
+        print("\n⚠️  WARNING: Use ONLY on test/sandbox environments you are authorised to test!")
         sys.exit(1)
 
     scanner = BusinessLogicAbuser(sys.argv[1], Path("revuex_workspace"), delay=5.0)

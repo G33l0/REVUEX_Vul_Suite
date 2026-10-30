@@ -56,6 +56,7 @@ class XXEScanner:
         }
         
         self.vulnerabilities = []
+        self.manual_checks = []
 
     def scan(self) -> List[Dict[str, Any]]:
         """Main XXE scanning method"""
@@ -72,30 +73,18 @@ class XXEScanner:
         print("   • Tests common safe files only")
         print("   • No DoS attacks executed\n")
         
-        # Test 1: Classic XXE
+        # Test 1: Classic XXE (the only test that produces confirmable evidence).
+        # Blind/SVG/parameter-entity/SOAP variants require out-of-band callbacks
+        # or a file-upload endpoint we cannot confirm by POSTing XML to the base
+        # URL, so they are documented as manual checks rather than fabricated
+        # findings (see _document_manual_checks).
         print("📂 Test 1: Classic XXE (File Disclosure)")
         self._test_classic_xxe()
         time.sleep(self.delay)
-        
-        # Test 2: Blind XXE
-        print("\n🕵️  Test 2: Blind XXE (Out-of-Band)")
-        self._test_blind_xxe()
-        time.sleep(self.delay)
-        
-        # Test 3: XXE via SVG
-        print("\n🖼️  Test 3: XXE via SVG Upload")
-        self._test_svg_xxe()
-        time.sleep(self.delay)
-        
-        # Test 4: Parameter Entity
-        print("\n📋 Test 4: Parameter Entity Attack")
-        self._test_parameter_entity()
-        time.sleep(self.delay)
-        
-        # Test 5: SOAP XXE
-        print("\n🧼 Test 5: SOAP XXE")
-        self._test_soap_xxe()
-        
+
+        # Record non-confirmable variants as manual guidance only.
+        self._document_manual_checks()
+
         # Save results
         self._save_results()
         
@@ -146,57 +135,42 @@ class XXEScanner:
                 break
             time.sleep(self.delay)
 
-    def _test_blind_xxe(self):
-        """Test blind XXE (out-of-band)"""
-        print("   Testing blind XXE...")
-        vuln = {
-            'type': 'XXE - Blind (Out-of-Band)',
-            'severity': 'high',
-            'url': self.target,
-            'description': 'Blind XXE allows data exfiltration via DNS/HTTP callbacks',
-            'tags': ['xxe', 'blind', 'out_of_band']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Blind XXE documented")
-
-    def _test_svg_xxe(self):
-        """Test XXE via SVG upload"""
-        print("   Testing XXE via SVG...")
-        vuln = {
-            'type': 'XXE - SVG Upload',
-            'severity': 'high',
-            'url': self.target,
-            'description': 'SVG file upload processes XXE payloads',
-            'tags': ['xxe', 'svg', 'upload']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ SVG XXE documented")
-
-    def _test_parameter_entity(self):
-        """Test parameter entity attack"""
-        print("   Testing parameter entity...")
-        vuln = {
-            'type': 'XXE - Parameter Entity',
-            'severity': 'high',
-            'url': self.target,
-            'description': 'Parameter entities allow advanced XXE attacks',
-            'tags': ['xxe', 'parameter_entity']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Parameter entity documented")
-
-    def _test_soap_xxe(self):
-        """Test SOAP XXE"""
-        print("   Testing SOAP XXE...")
-        vuln = {
-            'type': 'XXE - SOAP API',
-            'severity': 'high',
-            'url': self.target,
-            'description': 'SOAP endpoint vulnerable to XXE',
-            'tags': ['xxe', 'soap']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ SOAP XXE documented")
+    def _document_manual_checks(self):
+        """Record XXE variants that cannot be confirmed by POSTing XML to the
+        base URL. These used to be appended as fabricated 'high' vulnerabilities
+        for every target. They are now manual guidance only (severity info,
+        confidence manual-verification-required) and are NOT counted as findings."""
+        print("\n🕵️  Recording manual-verification XXE variants (not auto-confirmable)")
+        variants = [
+            ('XXE - Blind (Out-of-Band)',
+             'Requires an attacker-controlled DNS/HTTP collector to observe a '
+             'callback. Use an OOB payload pointing at your collector (e.g. '
+             'Burp Collaborator / interactsh) and confirm an inbound hit.',
+             ['xxe', 'blind', 'out_of_band']),
+            ('XXE - SVG Upload',
+             'Only relevant where the app accepts SVG/XML file uploads and parses '
+             'them. Upload an SVG with an external entity and confirm file content '
+             'or an OOB callback.',
+             ['xxe', 'svg', 'upload']),
+            ('XXE - Parameter Entity',
+             'Advanced OOB technique using parameter entities and an external DTD. '
+             'Confirm via a collector callback that exfiltrates file content.',
+             ['xxe', 'parameter_entity']),
+            ('XXE - SOAP API',
+             'Applies to SOAP/XML API endpoints. Inject an external entity into a '
+             'SOAP body and confirm file disclosure or an OOB callback.',
+             ['xxe', 'soap']),
+        ]
+        for name, how, tags in variants:
+            self.manual_checks.append({
+                'type': name,
+                'severity': 'info',
+                'confidence': 'manual-verification-required',
+                'url': self.target,
+                'how_to_confirm': how,
+                'tags': tags + ['manual', 'unconfirmed'],
+            })
+            print(f"   • Manual check: {name}")
 
     def _make_request(self, payload: str) -> Optional[requests.Response]:
         """Make XML request"""
@@ -216,11 +190,30 @@ class XXEScanner:
             return None
 
     def _check_file_disclosure(self, response: requests.Response) -> bool:
-        """Check if file was disclosed"""
-        patterns = ['root:', 'hostname', '/bin/', '/usr/', 'localhost', 'ubuntu', 'debian']
-        for pattern in patterns:
-            if pattern in response.text.lower():
+        """Check if a file was actually disclosed.
+
+        The previous signature list matched common words like 'localhost',
+        'ubuntu', 'debian', 'hostname' and '/usr/' that appear on countless
+        ordinary web pages, causing false positives. We now require signatures
+        that are specific to the actual contents of the files we requested
+        (/etc/hostname, /etc/issue) and are very unlikely to appear by chance in
+        an HTML page. /etc/hostname is a single short token; /etc/issue typically
+        contains an escape sequence like '\\n \\l' or a distro banner line."""
+        text = response.text or ""
+
+        # Strong, content-specific signatures.
+        specific = [
+            r'\\n\s+\\l',                        # /etc/issue escape codes: "\n \l"
+            r'(Ubuntu|Debian|CentOS|Red Hat).{0,40}\\[nlrms]',  # /etc/issue banner + escape
+        ]
+        for pat in specific:
+            if re.search(pat, text):
                 return True
+
+        # /etc/passwd-style line (if a payload escalates): user:x:uid:gid:
+        if re.search(r'^[a-z_][a-z0-9_-]*:[x*]?:\d+:\d+:', text, re.MULTILINE):
+            return True
+
         return False
 
     def _save_results(self):
@@ -233,7 +226,8 @@ class XXEScanner:
             json.dump({
                 'scanner': 'XXEScanner',
                 'target': self.target,
-                'vulnerabilities': self.vulnerabilities
+                'vulnerabilities': self.vulnerabilities,
+                'manual_checks': self.manual_checks
             }, f, indent=2)
         print(f"\n💾 Saved: {output_file}")
 
