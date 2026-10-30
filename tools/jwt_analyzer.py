@@ -130,17 +130,26 @@ class JWTAnalyzer:
         return None
 
     def _test_algorithm_confusion(self, token, jwt_data):
-        """Test RSA to HMAC confusion (Public Key as Secret)"""
+        """Flag RS->HS confusion as INFORMATIONAL only.
+
+        Using RS256 is not itself a vulnerability - the confusion attack only
+        works if the backend can be tricked into verifying an HS256 signature
+        with the RSA public key, which requires the public key and a live test.
+        The old code reported this as a confirmed 'high' finding for every
+        RS-signed token, a false positive. We emit an informational, manual-
+        verification item instead."""
         if jwt_data['header'].get('alg') not in ['RS256', 'RS384', 'RS512']:
             return None
-        
-        # Log logic: If an attacker provides the Public Key as the HMAC secret
-        # the server might verify the RSA signature using the HMAC algorithm.
+
         return {
-            'type': 'JWT - Potential Algorithm Confusion',
-            'severity': 'high',
-            'description': "Token uses RS256. Verify if backend accepts HMAC using Public Key.",
-            'manual_step': "Try resigning token using HS256 with the server's Public Key."
+            'type': 'JWT - Algorithm Confusion (manual check)',
+            'severity': 'info',
+            'confidence': 'manual-verification-required',
+            'description': ("Token uses an RSA algorithm. This is normal. IF the "
+                            "server's public key is obtainable, test whether the "
+                            "backend also accepts an HS256 token signed with that "
+                            "public key as the HMAC secret."),
+            'manual_step': "Resign the token with HS256 using the server's public key and check acceptance."
         }
 
     def _test_expiration(self, token, jwt_data):
@@ -157,23 +166,95 @@ class JWTAnalyzer:
         return None
 
     def _test_sensitive_data(self, token, jwt_data):
-        """Analyze payload for leaked info"""
-        payload_str = json.dumps(jwt_data['payload']).lower()
-        sensitive_keys = ['pwd', 'pass', 'admin', 'role', 'priv', 'root', 'internal']
-        found = [k for k in sensitive_keys if k in payload_str]
-        
+        """Analyze payload for genuinely sensitive VALUES.
+
+        The old check substring-matched 'admin', 'role', 'priv', 'root' against
+        the whole payload JSON. A `role` claim (even `role: admin`) is completely
+        normal in a JWT and is not a leak - this produced a 'medium' finding on
+        almost every real token. We now look only for claim NAMES that imply a
+        secret was embedded (passwords, secrets, private keys, raw card/SSN data),
+        and ignore ordinary identity/authorization claims."""
+        payload = jwt_data.get('payload', {})
+
+        # Claim names that should never carry a secret value inside a JWT.
+        secret_key_names = ['password', 'passwd', 'pwd', 'secret', 'api_key',
+                            'apikey', 'private_key', 'privatekey', 'client_secret',
+                            'ssn', 'credit_card', 'card_number', 'cvv', 'pin']
+
+        found = []
+        for key, value in self._iter_claims(payload):
+            kl = key.lower()
+            if any(s in kl for s in secret_key_names):
+                found.append(key)
+            # A PEM private key embedded as a value.
+            elif isinstance(value, str) and 'BEGIN' in value and 'PRIVATE KEY' in value:
+                found.append(key)
+
         if found:
-            return {'type': 'JWT - Sensitive Information Leak', 'severity': 'medium', 'found_keys': found}
+            return {
+                'type': 'JWT - Sensitive Data in Payload',
+                'severity': 'medium',
+                'description': 'JWT payload embeds secret-like claim(s). JWTs are '
+                               'readable by anyone holding the token.',
+                'found_claims': found,
+            }
         return None
 
+    def _iter_claims(self, obj, prefix=''):
+        """Yield (key, value) pairs recursively from a claim object."""
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                name = f"{prefix}.{k}" if prefix else str(k)
+                if isinstance(v, (dict, list)):
+                    yield from self._iter_claims(v, name)
+                else:
+                    yield name, v
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                yield from self._iter_claims(v, f"{prefix}[{i}]")
+
     def _test_token(self, token):
+        """Decide whether a forged token is ACCEPTED, using a differential.
+
+        A bare `status < 400` is not evidence: many endpoints return 200 for
+        everyone (public page, SPA shell, login redirect). We compare the forged
+        token against a deliberately-garbage token. The forged token is only
+        'accepted' if it succeeds AND the garbage token is rejected (or returns
+        clearly different content). That way a server that treats all tokens the
+        same does not yield a false positive."""
+        try:
+            forged = self._auth_response(token)
+            if forged is None:
+                return None
+
+            garbage = self._auth_response("invalid.invalid.invalid")
+            forged_ok = forged.status_code < 400
+
+            if garbage is None:
+                # Cannot build a baseline; be conservative and report unaccepted.
+                return {'accepted': False, 'status': forged.status_code,
+                        'note': 'no baseline'}
+
+            garbage_rejected = garbage.status_code >= 400
+            content_differs = (forged.text != garbage.text and
+                               abs(len(forged.text) - len(garbage.text)) > 50)
+
+            accepted = forged_ok and (garbage_rejected or content_differs)
+            return {
+                'accepted': accepted,
+                'status': forged.status_code,
+                'baseline_status': garbage.status_code,
+            }
+        except Exception:
+            return None
+
+    def _auth_response(self, token):
         try:
             headers = self.headers.copy()
             headers['Authorization'] = f'Bearer {token}'
-            response = requests.get(self.target, headers=headers, timeout=5, verify=False)
-            # 200/204/302 usually indicate acceptance
-            return {'accepted': response.status_code < 400, 'status': response.status_code}
-        except: return None
+            return requests.get(self.target, headers=headers, timeout=5, verify=False)
+        except Exception:
+            return None
 
     def _save_results(self, vulnerabilities):
         jwt_dir = self.workspace / "jwt_analysis"

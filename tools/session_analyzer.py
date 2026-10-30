@@ -59,7 +59,18 @@ class SessionAnalyzer:
         }
         
         self.vulnerabilities = []
+        self.manual_checks = []
         self.collected_tokens = []
+
+    @staticmethod
+    def _is_session_cookie(name: str) -> bool:
+        """Only session/auth cookies warrant HttpOnly/Secure 'high' findings.
+        Flagging analytics/consent/CSRF-display cookies produced false positives."""
+        n = (name or '').lower()
+        keywords = ['session', 'sess', 'sid', 'auth', 'token', 'jwt',
+                    'login', 'user', 'account', 'remember', 'phpsessid',
+                    'jsessionid', 'asp.net', 'connect.sid']
+        return any(k in n for k in keywords)
 
     def scan(self) -> List[Dict[str, Any]]:
         """Main session analysis method"""
@@ -134,11 +145,17 @@ class SessionAnalyzer:
             return
         
         issues = []
-        
+
         # Check each cookie
         for cookie in cookies:
             cookie_name = cookie.name
-            
+
+            # Only flag security-flag issues on actual session/auth cookies.
+            # Non-session cookies (analytics, consent, display tokens) do not
+            # carry session risk and were a major source of false positives.
+            if not self._is_session_cookie(cookie_name):
+                continue
+
             # Check HttpOnly flag
             if not cookie.has_nonstandard_attr('HttpOnly'):
                 issues.append({
@@ -242,17 +259,22 @@ for cookie in response.cookies:
             print(f"   ✓ Strong entropy ({avg_entropy:.2f} bits)")
 
     def _test_session_fixation(self):
-        """Test session fixation vulnerability"""
-        print("   Testing session fixation...")
-        vuln = {
+        """Session fixation cannot be confirmed without an authenticated login
+        flow (compare the session ID before and after login). This previously
+        appended a fabricated 'high' finding for every target. It is now recorded
+        as a manual check only."""
+        print("   Session fixation requires a login flow -> manual check")
+        self.manual_checks.append({
             'type': 'Session Management - Session Fixation',
-            'severity': 'high',
+            'severity': 'info',
+            'confidence': 'manual-verification-required',
             'url': self.target,
-            'description': 'Session ID not regenerated after login',
-            'tags': ['session', 'fixation']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Session fixation risk documented")
+            'how_to_confirm': ('Capture the session cookie before logging in, '
+                               'authenticate, then check whether the server issued '
+                               'a NEW session ID. If the pre-login ID is still valid '
+                               'post-login, it is vulnerable.'),
+            'tags': ['session', 'fixation', 'manual', 'unconfirmed']
+        })
 
     def _test_token_predictability(self):
         """Test if tokens are predictable"""
@@ -280,30 +302,36 @@ for cookie in response.cookies:
             print("   ✓ No obvious patterns detected")
 
     def _test_concurrent_sessions(self):
-        """Test concurrent session limits"""
-        print("   Testing concurrent session limits...")
-        vuln = {
-            'type': 'Session Management - Unlimited Concurrent Sessions',
-            'severity': 'medium',
+        """Concurrent-session limits cannot be measured without authenticating
+        the same account from multiple clients. Recorded as a manual check
+        instead of a fabricated finding."""
+        print("   Concurrent session limits require login -> manual check")
+        self.manual_checks.append({
+            'type': 'Session Management - Concurrent Session Limits',
+            'severity': 'info',
+            'confidence': 'manual-verification-required',
             'url': self.target,
-            'description': 'No limit on concurrent sessions per user',
-            'tags': ['session', 'concurrent']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Concurrent session issue documented")
+            'how_to_confirm': ('Log in as the same user from two clients. If both '
+                               'sessions remain valid with no limit/notification, '
+                               'note the policy. Whether this is a vulnerability is '
+                               'application-dependent.'),
+            'tags': ['session', 'concurrent', 'manual', 'unconfirmed']
+        })
 
     def _test_session_timeout(self):
-        """Test session timeout"""
-        print("   Testing session timeout policies...")
-        vuln = {
-            'type': 'Session Management - Weak Timeout Policy',
-            'severity': 'medium',
+        """Session timeout requires observing an authenticated session over time.
+        Recorded as a manual check instead of a fabricated finding."""
+        print("   Session timeout requires a timed login session -> manual check")
+        self.manual_checks.append({
+            'type': 'Session Management - Timeout Policy',
+            'severity': 'info',
+            'confidence': 'manual-verification-required',
             'url': self.target,
-            'description': 'Session timeout too long or non-existent',
-            'tags': ['session', 'timeout']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Session timeout documented")
+            'how_to_confirm': ('Authenticate, leave the session idle, and test '
+                               'whether it still works after the expected timeout. '
+                               'Check for both idle and absolute timeouts.'),
+            'tags': ['session', 'timeout', 'manual', 'unconfirmed']
+        })
 
     def _calculate_entropy(self, token: str) -> float:
         """Calculate Shannon entropy of token"""
@@ -361,7 +389,8 @@ for cookie in response.cookies:
                 'scanner': 'SessionAnalyzer',
                 'target': self.target,
                 'tokens_analyzed': len(self.collected_tokens),
-                'vulnerabilities': self.vulnerabilities
+                'vulnerabilities': self.vulnerabilities,
+                'manual_checks': self.manual_checks
             }, f, indent=2)
         print(f"\n💾 Saved: {output_file}")
 

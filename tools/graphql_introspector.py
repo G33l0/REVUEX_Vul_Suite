@@ -12,6 +12,7 @@ This tool is for educational purposes and authorized security testing only.
 
 import requests
 import json
+import re
 import time
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -278,35 +279,52 @@ class GraphQLIntrospector:
         vulnerabilities = []
         types = schema.get('types', [])
 
+        # Field NAMES that hint at sensitive data. A matching name does NOT prove
+        # the field is readable or unauthorized - it only flags where to look.
+        # Reported as medium + needs-verification rather than a confirmed 'high'
+        # data exposure. Keywords are matched on word boundaries so 'key' does
+        # not match 'keyboard' and 'card' does not match 'cardinality'.
         sensitive_keywords = [
-            'password', 'secret', 'token', 'key', 'private',
-            'ssn', 'credit', 'card', 'social', 'internal', 'admin'
+            'password', 'passwd', 'secret', 'apikey', 'api_key', 'token',
+            'private', 'ssn', 'creditcard', 'credit_card', 'cvv', 'social',
+            'privatekey', 'private_key'
         ]
+
+        def name_hits(field_name: str):
+            fn = field_name.lower()
+            for kw in sensitive_keywords:
+                # boundary-aware: kw surrounded by non-alphanumerics or string ends
+                if re.search(r'(?:^|[^a-z0-9])' + re.escape(kw) + r'(?:[^a-z0-9]|$)', fn):
+                    return kw
+            return None
 
         sensitive_fields = []
         for type_def in types:
             if type_def.get('kind') == 'OBJECT':
-                fields = type_def.get('fields', [])
-                for field in fields:
-                    field_name = field.get('name', '').lower()
-                    for keyword in sensitive_keywords:
-                        if keyword in field_name:
-                            sensitive_fields.append({
-                                'type': type_def.get('name'),
-                                'field': field.get('name'),
-                                'keyword': keyword
-                            })
+                for field in type_def.get('fields', []):
+                    kw = name_hits(field.get('name', ''))
+                    if kw:
+                        sensitive_fields.append({
+                            'type': type_def.get('name'),
+                            'field': field.get('name'),
+                            'keyword': kw
+                        })
 
         if sensitive_fields:
             sample_field = sensitive_fields[0]
             vulnerabilities.append({
-                'type': 'Sensitive Fields Exposed',
-                'severity': 'high',
+                'type': 'GraphQL - Sensitive Field Names in Schema',
+                'severity': 'medium',
+                'confidence': 'needs-manual-verification',
                 'url': graphql_url,
-                'description': 'Exposed sensitive fields in schema',
-                'evidence': f"Found {len(sensitive_fields)} sensitive field names including: {sample_field['type']}.{sample_field['field']}",
+                'description': ('Schema exposes field names that suggest sensitive '
+                                'data. Confirm whether these fields are actually '
+                                'queryable without authorization before treating '
+                                'this as data exposure.'),
+                'evidence': f"{len(sensitive_fields)} candidate field name(s), e.g. "
+                            f"{sample_field['type']}.{sample_field['field']}",
                 'details': sensitive_fields[:10],
-                'tags': ['graphql', 'sensitive_data', 'authorization']
+                'tags': ['graphql', 'sensitive_data', 'unconfirmed']
             })
 
         return vulnerabilities

@@ -52,8 +52,9 @@ class CSRFTester:
         self.headers = {
             'User-Agent': 'REVUEX-CSRFTester/1.0 (Security Research; +https://github.com/G33L0)',
         }
-        
+
         self.vulnerabilities = []
+        self.manual_checks = []
 
     def scan(self) -> List[Dict[str, Any]]:
         """Main CSRF scanning method"""
@@ -106,60 +107,90 @@ class CSRFTester:
         try:
             soup = BeautifulSoup(response.text, 'html.parser')
             forms = soup.find_all('form')
-            
+
             if not forms:
                 print("   ℹ️  No forms found")
                 return
-            
+
+            token_names = ['csrf', 'token', '_token', 'authenticity_token', 'csrf_token', 'xsrf', 'nonce']
+
+            # A token may live outside the form (meta tag read by JS, or a
+            # framework default). Detect those so we do not over-report.
+            page_text = response.text.lower()
+            has_meta_token = bool(soup.find('meta', attrs={'name': re.compile(r'csrf|xsrf', re.I)}))
+            # SameSite cookies mitigate most CSRF even without a form token.
+            samesite_cookie = any(
+                c.has_nonstandard_attr('SameSite') for c in response.cookies
+            )
+
             vulnerable_forms = []
-            token_names = ['csrf', 'token', '_token', 'authenticity_token', 'csrf_token']
-            
             for i, form in enumerate(forms):
+                method = form.get('method', 'GET').upper()
+                if method != 'POST':
+                    continue
                 csrf_token = None
                 for input_field in form.find_all('input'):
                     field_name = input_field.get('name', '').lower()
                     if any(token in field_name for token in token_names):
                         csrf_token = input_field.get('value')
                         break
-                
-                method = form.get('method', 'GET').upper()
-                if not csrf_token and method == 'POST':
+                if not csrf_token:
                     vulnerable_forms.append({
                         'form_index': i,
                         'action': form.get('action', 'N/A'),
                         'method': method
                     })
-            
+
             if vulnerable_forms:
+                # Lower severity and flag for verification when a page-level token
+                # or SameSite protection is present, since the form may still be
+                # protected by a mechanism we cannot see in static HTML.
+                mitigated = has_meta_token or samesite_cookie
                 vuln = {
-                    'type': 'CSRF - Missing Token',
-                    'severity': 'high',
+                    'type': 'CSRF - Possible Missing Token',
+                    'severity': 'medium' if mitigated else 'high',
+                    'confidence': 'needs-manual-verification',
                     'url': self.target,
                     'vulnerable_forms': vulnerable_forms,
-                    'description': f'{len(vulnerable_forms)} POST form(s) without CSRF token',
+                    'description': (f'{len(vulnerable_forms)} POST form(s) with no CSRF '
+                                    f'token field. '
+                                    + ('A page-level CSRF meta tag and/or SameSite '
+                                       'cookie was also detected, which may already '
+                                       'mitigate CSRF - verify enforcement manually.'
+                                       if mitigated else
+                                       'No page-level token or SameSite cookie detected.')),
                     'poc': f"<html><body><form id='csrf' action='{self.target}' method='POST'>...</form></body></html>",
-                    'remediation': ['Add CSRF tokens to all POST forms', 'Implement SameSite=Lax/Strict'],
-                    'tags': ['csrf', 'high', 'missing_token']
+                    'remediation': ['Add CSRF tokens to all state-changing forms',
+                                    'Set SameSite=Lax/Strict on session cookies',
+                                    'Validate the token server-side'],
+                    'tags': ['csrf', 'missing_token', 'unconfirmed']
                 }
                 self.vulnerabilities.append(vuln)
-                print(f"   ✓ VULNERABLE: {len(vulnerable_forms)} forms without CSRF tokens")
+                print(f"   ? {len(vulnerable_forms)} POST form(s) without a token field "
+                      f"(mitigated={mitigated})")
             else:
-                print("   ✓ All forms have CSRF tokens")
+                print("   ✓ All POST forms carry a token field")
         except Exception as e:
             print(f"   ⚠️  Error parsing HTML: {e}")
 
     def _test_token_validation(self):
-        """Test if CSRF token is actually validated"""
-        print("   Testing token validation...")
-        vuln = {
-            'type': 'CSRF - Token Not Validated',
-            'severity': 'critical',
+        """Whether a CSRF token is actually enforced can only be proven by
+        submitting a state-changing request with a missing/forged token and
+        observing that it still succeeds - which requires an authenticated
+        session and a known action endpoint. This previously appended a
+        fabricated 'critical' for every target. Recorded as a manual check."""
+        print("   Token enforcement requires a live action -> manual check")
+        self.manual_checks.append({
+            'type': 'CSRF - Token Enforcement',
+            'severity': 'info',
+            'confidence': 'manual-verification-required',
             'url': self.target,
-            'description': 'CSRF token present but not validated server-side',
-            'tags': ['csrf', 'critical', 'validation']
-        }
-        self.vulnerabilities.append(vuln)
-        print("   ✓ Token validation issue documented")
+            'how_to_confirm': ('Authenticate, then replay a state-changing POST '
+                               'with the CSRF token removed and again with a forged '
+                               'token. If the action still succeeds, the token is '
+                               'not enforced (CSRF).'),
+            'tags': ['csrf', 'validation', 'manual', 'unconfirmed']
+        })
 
     def _test_samesite_cookies(self):
         """Test SameSite cookie protection"""
@@ -182,23 +213,22 @@ class CSRFTester:
                 print("   ✓ SameSite properly configured")
 
     def _test_referer_validation(self):
-        """Test Referer header validation"""
-        print("   Testing Referer validation...")
-        headers = {**self.headers, 'Referer': 'https://evil.com'}
-        response = self._make_request(self.target, headers)
-        
-        if response and response.status_code == 200:
-            vuln = {
-                'type': 'CSRF - No Referer Validation',
-                'severity': 'medium',
-                'url': self.target,
-                'description': 'Server accepts requests from any referer',
-                'tags': ['csrf', 'referer']
-            }
-            self.vulnerabilities.append(vuln)
-            print("   ✓ Issue: No Referer validation")
-        else:
-            print("   ✓ Referer validation present")
+        """Referer validation only matters for state-changing requests, and a
+        GET to the target returning 200 with an arbitrary Referer is completely
+        normal - it is NOT evidence of a CSRF flaw. The old check flagged almost
+        every site. Recorded as a manual check to run against a real action."""
+        print("   Referer validation is action-specific -> manual check")
+        self.manual_checks.append({
+            'type': 'CSRF - Referer/Origin Validation',
+            'severity': 'info',
+            'confidence': 'manual-verification-required',
+            'url': self.target,
+            'how_to_confirm': ('Send a state-changing request (POST/PUT/DELETE) '
+                               'to a real action endpoint with a foreign or absent '
+                               'Referer/Origin header. If it still succeeds and no '
+                               'CSRF token is enforced, it may be CSRF-able.'),
+            'tags': ['csrf', 'referer', 'manual', 'unconfirmed']
+        })
 
     def _make_request(self, url: str, headers: Dict = None) -> Optional[requests.Response]:
         if self.request_count >= self.max_requests: return None
@@ -215,7 +245,7 @@ class CSRFTester:
         safe_target = re.sub(r'[^\w\-]', '_', self.target)
         output_file = output_dir / f"{safe_target}_csrf.json"
         with open(output_file, 'w') as f:
-            json.dump({'scanner': 'CSRFTester', 'target': self.target, 'vulnerabilities': self.vulnerabilities}, f, indent=2)
+            json.dump({'scanner': 'CSRFTester', 'target': self.target, 'vulnerabilities': self.vulnerabilities, 'manual_checks': self.manual_checks}, f, indent=2)
         print(f"\n💾 Saved: {output_file}")
 
 if __name__ == "__main__":
