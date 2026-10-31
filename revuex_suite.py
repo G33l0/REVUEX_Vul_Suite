@@ -253,6 +253,17 @@ class RevuexSuite:
             generator = ReportGenerator(self.workspace)
             report_path = generator.generate_html_report(report_data)
             print(f"{Fore.GREEN}✅ SCAN COMPLETE. Professional report generated at: {report_path}")
+
+            # When vulnerabilities were found, also produce a remediation + impact
+            # plan in the SAME folder as the main report.
+            try:
+                remediation_path = generator.generate_remediation_report(report_data)
+                if remediation_path:
+                    print(f"{Fore.GREEN}🛠️  Remediation & impact plan generated at: {remediation_path}")
+                else:
+                    print(f"{Fore.CYAN}ℹ️  No vulnerabilities found - remediation plan not needed.")
+            except Exception as e:
+                print(f"{Fore.RED}[!] Failed to generate remediation plan: {str(e)}")
         except Exception as e:
             print(f"{Fore.RED}[!] Failed to generate report: {str(e)}")
 
