@@ -286,9 +286,9 @@ Complete 3-phase security assessment:
 python3 revuex_suite.py full -t target.com [options]
 
 Options:
-  -t, --target     Target domain (required)
-  -d, --delay      Delay between requests (default: 2s)
-  -m, --mode       Execution mode: sequential|parallel (default: sequential)
+  -t, --target     Target URL/domain (required)
+  -d, --delay      Delay between requests in seconds (default: 2)
+  --enrich         Enrich findings with live CVE/KEV/EPSS intel (outbound calls)
 ```
 
 **Example:**
@@ -296,6 +296,26 @@ Options:
 ```bash
 python3 revuex_suite.py full -t bugcrowd.com -d 3
 ```
+
+### Output & Reports
+
+Each scan creates a timestamped project folder under `scans/`, e.g.
+`scans/example_com_20261031_121532/`. Inside it you get:
+
+| File | When | Contents |
+|------|------|----------|
+| `REVUEX_SECURITY_REPORT.html` | always | Executive summary, risk score, and every finding (severity, OWASP 2025 category, endpoint, evidence). |
+| `REVUEX_REMEDIATION_REPORT.html` | **only when vulnerabilities are found** | Per-finding **recommended remedy** plus the **impact of applying it** — both **positive** (security benefit) and **negative** (operational cost / what may break, e.g. a strict CSP breaking inline scripts, HSTS being hard to roll back, SSRF allow-lists breaking webhooks). |
+| `*/` subfolders + `*.json` | always | Raw per-scanner results (one folder per scanner). |
+
+Both HTML reports are written to the **same** project folder. Open them in any
+browser. If a scan finds no vulnerabilities, the remediation report is not
+created (you'll see *"remediation plan not needed"*).
+
+> Findings and remedies are tagged with their **OWASP Top 10:2025** category,
+> and items the scanner could not fully confirm are marked
+> `needs-verification` — verify those (and test every fix in staging) before
+> acting on them.
 
 #### 2. Reconnaissance Only
 
