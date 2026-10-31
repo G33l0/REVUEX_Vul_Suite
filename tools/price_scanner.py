@@ -74,11 +74,45 @@ class PriceManipulationScanner:
             }
         }
 
+    def _capture_baseline(self):
+        """POST a legitimate price and record its response, so a manipulated
+        price is only treated as 'accepted' when its response DIFFERS from the
+        legit one. Without this, an endpoint that returns 200 for every POST
+        (or isn't even a checkout endpoint) produced false 'critical' findings."""
+        self._baseline_status = None
+        self._baseline_len = None
+        try:
+            payload = {'price': 100, 'amount': 100, 'total': 100,
+                       'item_id': 'test_item', 'quantity': 1, 'currency': 'USD'}
+            r = requests.post(self.endpoint, headers=self.headers, json=payload,
+                              timeout=10, verify=False)
+            self._baseline_status = r.status_code
+            self._baseline_len = len(r.text or "")
+        except Exception:
+            pass
+
+    def _accepted_differently(self, response) -> bool:
+        """True only when the manipulated request's response differs materially
+        from the legitimate-price baseline (status change, or >150-char length
+        delta). A server that answers identically to every price is not evidence."""
+        if response is None or response.status_code not in (200, 201, 202):
+            return False
+        if self._baseline_status is None:
+            # No baseline -> cannot differentiate -> do not assert a finding.
+            return False
+        if response.status_code != self._baseline_status:
+            return True
+        if self._baseline_len is not None and \
+                abs(len(response.text or "") - self._baseline_len) > 150:
+            return True
+        return False
+
     def test(self):
         """Test for price manipulation vulnerabilities"""
         print(f"[!] CAUTION: Testing price manipulation on {self.endpoint}")
         print(f"[!] Using {self.delay}s safety delay")
-        
+
+        self._capture_baseline()
         vulnerabilities = []
         
         # Test 1: Negative prices
@@ -138,6 +172,7 @@ class PriceManipulationScanner:
             'type': 'Price Manipulation - Negative Prices',
             'severity': 'critical',
             'endpoint': self.endpoint,
+            'confidence': 'needs-manual-verification',
             'description': 'E-commerce endpoint accepts negative price values, allowing attackers to receive money instead of paying for products',
             'evidence': f'Negative price accepted: {result.get("evidence")}',
             'steps_to_reproduce': [
@@ -162,6 +197,7 @@ class PriceManipulationScanner:
             'type': 'Price Manipulation - Zero Price',
             'severity': 'critical',
             'endpoint': self.endpoint,
+            'confidence': 'needs-manual-verification',
             'description': 'Endpoint accepts zero-price orders, allowing free product acquisition',
             'evidence': f'Zero price accepted: {result.get("evidence")}',
             'before_state': 'Product costs > $0',
@@ -178,6 +214,7 @@ class PriceManipulationScanner:
             'type': 'Price Manipulation - Decimal Precision',
             'severity': 'high',
             'endpoint': self.endpoint,
+            'confidence': 'needs-manual-verification',
             'description': 'Endpoint accepts fractional cent prices causing rounding errors',
             'evidence': f'Tiny prices accepted: {result.get("evidence")}',
             'before_state': 'Proper rounding expected',
@@ -195,6 +232,7 @@ class PriceManipulationScanner:
             'type': 'Price Manipulation - Parameter Tampering',
             'severity': 'critical',
             'endpoint': self.endpoint,
+            'confidence': 'needs-manual-verification',
             'description': 'Server trusts client-supplied total instead of calculating server-side',
             'evidence': f'Tampering accepted: {result.get("evidence")}',
             'before_state': 'Client cannot manipulate total',
@@ -211,6 +249,7 @@ class PriceManipulationScanner:
             'type': 'Currency Manipulation',
             'severity': 'medium',
             'endpoint': self.endpoint,
+            'confidence': 'needs-manual-verification',
             'description': 'Invalid currency codes accepted',
             'evidence': f'Currency manipulation: {result.get("evidence")}',
             'remediation': [
@@ -229,7 +268,7 @@ class PriceManipulationScanner:
             try:
                 payload = {'price': price, 'amount': price, 'total': price, 'item_id': 'test_item', 'quantity': 1}
                 response = requests.post(self.endpoint, headers=self.headers, json=payload, timeout=10, verify=False)
-                accepted = response.status_code in [200, 201, 202]
+                accepted = self._accepted_differently(response)
                 test_result = {'price': price, 'status_code': response.status_code, 'accepted': accepted}
                 results['tests'].append(test_result)
                 if accepted:
@@ -246,7 +285,7 @@ class PriceManipulationScanner:
             try:
                 payload = {'price': price, 'total': price, 'item_id': 'test_item', 'quantity': 1}
                 response = requests.post(self.endpoint, headers=self.headers, json=payload, timeout=10, verify=False)
-                accepted = response.status_code in [200, 201, 202]
+                accepted = self._accepted_differently(response)
                 results['tests'].append({'price': price, 'status_code': response.status_code, 'accepted': accepted})
                 if accepted:
                     results['vulnerable'] = True
@@ -262,7 +301,7 @@ class PriceManipulationScanner:
             try:
                 payload = {'price': price, 'amount': price, 'item_id': 'test_item', 'quantity': 1000}
                 response = requests.post(self.endpoint, headers=self.headers, json=payload, timeout=10, verify=False)
-                accepted = response.status_code in [200, 201, 202]
+                accepted = self._accepted_differently(response)
                 results['tests'].append({'price': price, 'quantity': 1000, 'status_code': response.status_code, 'accepted': accepted})
                 if accepted and price < 0.01:
                     results['vulnerable'] = True
@@ -281,7 +320,7 @@ class PriceManipulationScanner:
         for test in tampering_tests:
             try:
                 response = requests.post(self.endpoint, headers=self.headers, json=test['payload'], timeout=10, verify=False)
-                accepted = response.status_code in [200, 201, 202]
+                accepted = self._accepted_differently(response)
                 results['tests'].append({'test_name': test['name'], 'payload': test['payload'], 'status_code': response.status_code, 'accepted': accepted})
                 if accepted:
                     results['vulnerable'] = True
@@ -297,7 +336,7 @@ class PriceManipulationScanner:
             try:
                 payload = {'price': 100, 'currency': currency, 'item_id': 'test_item'}
                 response = requests.post(self.endpoint, headers=self.headers, json=payload, timeout=10, verify=False)
-                accepted = response.status_code in [200, 201, 202]
+                accepted = self._accepted_differently(response)
                 results['tests'].append({'currency': currency, 'status_code': response.status_code, 'accepted': accepted})
                 if accepted and currency in ['XXX', '', 'null']:
                     results['vulnerable'] = True
