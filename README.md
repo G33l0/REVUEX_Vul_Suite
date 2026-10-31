@@ -135,36 +135,128 @@ REVUEX (Reconnaissance & Vulnerability Exploitation Utility eXtreme) is a **prof
 
 - Python 3.8+
 - pip package manager
-- Linux/MacOS (recommended)
+- Works on **Linux, macOS and Windows** (the suite is pure Python with no OS-specific dependencies)
 
-### Quick Install
+### Quick Install (Linux / macOS)
 
 ```bash
 # Clone repository
 git clone https://github.com/G33L0/REVUEX_Vul_Suite.git
-cd REVUEX-Vul-Suite
+cd REVUEX_Vul_Suite
+
+# (recommended) create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Make executable
-chmod +x revuex_suite.py
+# View all options
+python3 revuex_suite.py --help
+```
 
-# Verify installation
-python3 revuex_suite.py --version
+### Windows (step-by-step)
+
+REVUEX runs on Windows and renders coloured output correctly (via `colorama`).
+Run these in **PowerShell**.
+
+**1. Install prerequisites (one time)**
+
+- Python 3.8+ from [python.org/downloads](https://www.python.org/downloads/) —
+  on the first installer screen, tick **"Add python.exe to PATH"**.
+- Git from [git-scm.com/download/win](https://git-scm.com/download/win)
+  (or download the repo as a ZIP instead of cloning).
+
+Verify:
+
+```powershell
+python --version
+git --version
+```
+
+**2. Get the code**
+
+```powershell
+cd $HOME\Documents
+git clone https://github.com/G33L0/REVUEX_Vul_Suite.git
+cd REVUEX_Vul_Suite
+```
+
+**3. Create and activate a virtual environment**
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+Your prompt should now start with `(venv)`.
+
+> If activation is blocked with *"running scripts is disabled"*, run this once,
+> then retry the activate line:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+> ```
+>
+> In **CMD** instead of PowerShell, activate with `venv\Scripts\activate.bat`.
+
+**4. Install dependencies**
+
+```powershell
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+**5. Run a scan** (press **Enter** when prompted for a JWT token to skip it)
+
+```powershell
+python revuex_suite.py full -t https://TARGET-YOU-ARE-AUTHORIZED-TO-TEST.com
+```
+
+Useful flags: `-d 1` (delay in seconds between requests), `--enrich` (add live
+CVE/KEV/EPSS lookups — makes outbound calls).
+
+**6. Read the report** — a timestamped folder is created under `scans\`:
+
+```powershell
+explorer (Get-ChildItem scans -Directory | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
+```
+
+Open `REVUEX_SECURITY_REPORT.html` from that folder.
+
+**7. (Optional) Run a single scanner**
+
+```powershell
+python tools\misconfig_scanner.py https://example.com
+python tools\xss_scanner.py "https://example.com/search?q=test"
+```
+
+**8. (Optional) Out-of-band confirmation** for blind SSRF/XXE/SSTI — set your
+own collector before running:
+
+```powershell
+$env:REVUEX_OOB_DOMAIN   = "yourcollector.oast.live"
+$env:REVUEX_OOB_POLL_URL = "https://yourcollector.example/poll"   # optional
+```
+
+**Next time** — just reactivate the venv and run (no reinstall needed):
+
+```powershell
+cd $HOME\Documents\REVUEX_Vul_Suite
+.\venv\Scripts\Activate.ps1
+python revuex_suite.py full -t https://example.com
 ```
 
 ### Requirements
 
 ```txt
 requests>=2.31.0
+urllib3>=2.0.0
+colorama>=0.4.6
 beautifulsoup4>=4.12.0
 lxml>=4.9.0
 pyjwt>=2.8.0
 cryptography>=41.0.0
-urllib3>=2.0.0
-html-parser>=0.0.3
-colorama>=0.4.6
 ```
 
 -----
