@@ -19,6 +19,17 @@ from core.logger import RevuexLogger
 from core.intelligence_hub import IntelligenceHub
 from core.report_generator import ReportGenerator
 
+# OWASP 2025 mapping + threat-intel enrichment (both are optional and
+# import-safe; wrap so a missing/old core never breaks the launcher).
+try:
+    from core import owasp2025
+except Exception:
+    owasp2025 = None
+try:
+    from core.intel_feeds import IntelFeeds
+except Exception:
+    IntelFeeds = None
+
 # ================= SCANNER IMPORTS =================
 from tools import (
     subdomain_hunter, tech_fingerprinter, js_secrets_miner,
@@ -27,7 +38,9 @@ from tools import (
     IDOR_tester, xss_scanner, business_logic_abuser,
     file_upload_tester, xxe_scanner, session_analyzer,
     cors_scanner, csrf_tester, dependency_checker,
-    ssti_engine
+    ssti_engine,
+    # New 2026 feature scanners
+    misconfig_scanner, mcp_scanner, llm_scanner, supply_chain_scanner,
 )
 
 # ================= REAL-TIME UI =================
@@ -77,23 +90,36 @@ class RealTimeStatusDisplay:
 
 # ================= SUITE CORE =================
 class RevuexSuite:
-    def __init__(self, target, mode='sequential', delay=2.0):
+    def __init__(self, target, mode='sequential', delay=2.0, enrich=False):
         self.target = target
         self.mode = mode
         self.delay = delay
         self.workspace = self._create_workspace()
         self.logger = RevuexLogger(self.workspace)
         self.status = RealTimeStatusDisplay()
+
+        # Optional threat-intel enrichment (off by default: it makes outbound
+        # calls to NVD/EPSS/KEV). Enable with --enrich. Safe no-op if core lacks it.
+        self._intel = None
+        if enrich and IntelFeeds is not None:
+            try:
+                self._intel = IntelFeeds(self.workspace)
+            except Exception:
+                self._intel = None
         
         # Data aggregation for reporting
         self.all_vulnerabilities = []
         self.recon_data = {'subdomains': [], 'technologies': {}}
 
+        # NOTE: class names below are matched to the ACTUAL classes in each
+        # module (several prior references pointed at non-existent classes and
+        # crashed the suite at startup).
         self.scanners = {
             'reconnaissance': [
                 ('SubdomainHunter', subdomain_hunter.SubdomainHunter),
                 ('TechFingerprinter', tech_fingerprinter.TechFingerprinter),
                 ('DependencyChecker', dependency_checker.DependencyChecker),
+                ('SupplyChainScanner', supply_chain_scanner.SupplyChainScanner),
             ],
             'authentication_jwt': [
                 ('JWTAnalyzer', jwt_analyzer.JWTAnalyzer),
@@ -106,13 +132,20 @@ class RevuexSuite:
                 ('SSRFScanner', ssrf_scanner.SSRFScanner),
                 ('EnhancedSQLiScanner', sqli_scanner.EnhancedSQLiScanner),
                 ('XXEScanner', xxe_scanner.XXEScanner),
-                ('XSSScanner', xss_scanner.XSSScanner),
+                ('EnhancedXSSScanner', xss_scanner.EnhancedXSSScanner),
             ],
             'business_logic': [
                 ('IDORTester', IDOR_tester.IDORTester),
-                ('PriceScanner', price_scanner.PriceScanner),
-                ('RaceTester', race_tester.RaceTester),
+                ('PriceManipulationScanner', price_scanner.PriceManipulationScanner),
+                ('RaceConditionTester', race_tester.RaceConditionTester),
                 ('BusinessLogicAbuser', business_logic_abuser.BusinessLogicAbuser),
+            ],
+            'misconfiguration': [
+                ('MisconfigScanner', misconfig_scanner.MisconfigScanner),
+            ],
+            'ai_agent_security': [
+                ('MCPScanner', mcp_scanner.MCPScanner),
+                ('LLMScanner', llm_scanner.LLMScanner),
             ],
             'exploitation': [
                 ('FileUploadTester', file_upload_tester.FileUploadTester),
@@ -154,28 +187,53 @@ class RevuexSuite:
                 else:
                     scanner = cls(self.target, self.workspace, self.delay)
 
-                # Execute based on existing method names
+                # Execute based on existing method names.
                 if hasattr(scanner, 'scan'): results = scanner.scan()
+                elif hasattr(scanner, 'test'): results = scanner.test()
                 elif hasattr(scanner, 'discover'): results = scanner.discover()
                 elif hasattr(scanner, 'analyze'): results = scanner.analyze()
+                elif hasattr(scanner, 'identify'): results = scanner.identify()
                 else: continue
 
-                # Collect findings for reporting
-                self.status.update_stats(results)
+                # Normalise to the list of confirmed vulnerabilities.
                 if isinstance(results, list):
-                    self.all_vulnerabilities.extend(results)
+                    found = results
                 elif isinstance(results, dict):
-                    self.all_vulnerabilities.extend(results.get('vulnerabilities', []))
-                    # Extract recon data if applicable
+                    found = results.get('vulnerabilities', []) or []
                     if name == 'SubdomainHunter':
                         self.recon_data['subdomains'] = results.get('subdomains', [])
+                else:
+                    found = []
 
-                findings = len(results) if isinstance(results, list) else len(results.get('vulnerabilities', []))
-                self.status.complete_scanner(name, findings, time.time() - start)
-                
+                # Enrich: OWASP 2025 category + threat-intel (both best-effort).
+                found = self._enrich_findings(found)
+
+                self.status.update_stats(found)
+                self.all_vulnerabilities.extend(found)
+
+                self.status.complete_scanner(name, len(found), time.time() - start)
+
                 time.sleep(self.delay)
             except Exception as e:
                 print(f"{Fore.RED}[!] Error in {name}: {str(e)}")
+
+    def _enrich_findings(self, findings):
+        """Annotate findings with OWASP 2025 categories and (optionally) CVE/KEV/
+        EPSS intel. Both steps are best-effort and never raise."""
+        if not isinstance(findings, list):
+            return findings
+        if owasp2025 is not None:
+            try:
+                owasp2025.annotate_all(findings)
+            except Exception:
+                pass
+        if self._intel is not None:
+            for f in findings:
+                try:
+                    self._intel.enrich_finding(f)
+                except Exception:
+                    continue
+        return findings
 
     def _generate_final_report(self):
         """Integration block for the ReportGenerator"""
@@ -203,9 +261,11 @@ def main():
     parser.add_argument('command', choices=['full'], help='Scan mode')
     parser.add_argument('-t', '--target', required=True, help='Target URL')
     parser.add_argument('-d', '--delay', type=float, default=2.0)
+    parser.add_argument('--enrich', action='store_true',
+                        help='Enrich findings with CVE/KEV/EPSS intel (outbound calls)')
     args = parser.parse_args()
 
-    suite = RevuexSuite(args.target, delay=args.delay)
+    suite = RevuexSuite(args.target, delay=args.delay, enrich=args.enrich)
     suite.run_full_scan()
 
 if __name__ == "__main__":

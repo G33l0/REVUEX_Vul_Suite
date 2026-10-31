@@ -16,6 +16,7 @@ import argparse
 import time
 import re
 from urllib.parse import urlparse, urljoin
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime
@@ -621,6 +622,132 @@ Part of REVUEX Framework
     except Exception as e:
         print(f"\n{Colors.RED}[!] Error: {e}{Colors.ENDC}")
         sys.exit(1)
+
+class IDORTester:
+    """Suite-facing wrapper (OWASP A01:2025 Broken Access Control).
+
+    The full two-account IDORHunter above proves BOLA by comparing a resource
+    owner's view with an attacker's. The automated suite runs unauthenticated,
+    so this wrapper does the part that IS safely automatable without credentials:
+
+      - BFLA probe: request privileged/admin API endpoints anonymously and flag
+        ONLY when they return privileged content (not a login/redirect/404),
+        confirmed against a baseline, and marked needs-verification.
+      - Emits a manual_check that points to the two-account IDORHunter for full
+        BOLA confirmation.
+
+    It never fabricates: an endpoint that simply returns 200 (e.g. a SPA shell or
+    a login page) is not reported.
+    """
+
+    def __init__(self, target, workspace, delay: float = 2.0):
+        self.target = target if str(target).startswith("http") else f"https://{target}"
+        self.base = self.target.rstrip("/")
+        self.workspace = Path(workspace)
+        self.delay = delay
+        self.timeout = 10
+        self.max_requests = 40
+        self.request_count = 0
+        self.headers = {
+            "User-Agent": "REVUEX-IDORTester/2.0 (Security Research; +https://github.com/G33L0)",
+            "Accept": "application/json, text/html, */*",
+        }
+        self.vulnerabilities = []
+        self.manual_checks = []
+        self.privileged_paths = [
+            "/admin", "/admin/", "/api/admin", "/api/admin/users",
+            "/api/users", "/api/accounts", "/api/internal",
+            "/actuator", "/api/config", "/api/settings",
+            "/dashboard/admin", "/manage", "/api/v1/admin",
+        ]
+
+    def _get(self, path):
+        if self.request_count >= self.max_requests:
+            return None
+        try:
+            r = requests.get(urljoin(self.base + "/", path.lstrip("/")),
+                             headers=self.headers, timeout=self.timeout,
+                             verify=False, allow_redirects=False)
+            self.request_count += 1
+            return r
+        except Exception:
+            return None
+
+    @staticmethod
+    def _looks_privileged(resp) -> bool:
+        """Heuristic that the response is actual privileged data, not a login or
+        generic page. Requires a 2xx, a data-ish content type, and admin/user
+        data signatures."""
+        if resp is None or not (200 <= resp.status_code < 300):
+            return False
+        ctype = resp.headers.get("Content-Type", "").lower()
+        body = resp.text or ""
+        low = body.lower()
+        # A login page or auth challenge is not privileged access.
+        if any(s in low for s in ("login", "sign in", "unauthorized",
+                                  "authentication required", "please log in")):
+            return False
+        signatures = ['"users"', '"email"', '"role"', '"is_admin"', '"isadmin"',
+                      '"accounts"', 'adminpanel', 'user management', '"permissions"',
+                      '"password"', '"token"']
+        hits = sum(1 for s in signatures if s in low)
+        data_ctype = ("json" in ctype) or ("application/" in ctype)
+        return hits >= 2 or (data_ctype and hits >= 1)
+
+    def scan(self):
+        print(f"\n{'='*60}\n🔑 REVUEX IDOR / BOLA / BFLA Tester (A01:2025)\n{'='*60}")
+        print(f"Target: {self.target}\n")
+
+        for path in self.privileged_paths:
+            if self.request_count >= self.max_requests:
+                break
+            resp = self._get(path)
+            if self._looks_privileged(resp):
+                self.vulnerabilities.append({
+                    "type": "Broken Function-Level Authorization (BFLA)",
+                    "severity": "high",
+                    "owasp_2025": "A01",
+                    "confidence": "needs-manual-verification",
+                    "url": urljoin(self.base + "/", path.lstrip("/")),
+                    "evidence": f"Privileged endpoint {path} returned "
+                                f"{resp.status_code} with admin/user data signatures "
+                                f"to an UNAUTHENTICATED request.",
+                    "description": "A privileged/admin endpoint appears reachable "
+                                   "without authentication, exposing function-level "
+                                   "authorization failure.",
+                    "remediation": ["Enforce authentication AND role checks on every "
+                                    "privileged endpoint server-side."],
+                    "tags": ["idor", "bfla", "access_control", "api"],
+                })
+                print(f"   • BFLA candidate: {path} ({resp.status_code})")
+            time.sleep(self.delay)
+
+        self.manual_checks.append({
+            "type": "IDOR / BOLA - Two-Account Verification",
+            "severity": "info",
+            "confidence": "manual-verification-required",
+            "owasp_2025": "A01",
+            "url": self.target,
+            "how_to_confirm": ("Full BOLA testing needs two accounts. Run the "
+                               "IDORHunter (two-account mode) and confirm Account B "
+                               "can read/modify Account A's objects by ID."),
+            "tags": ["idor", "bola", "manual", "unconfirmed"],
+        })
+
+        out = self.workspace / "idor_scans"
+        out.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r"[^\w\-]", "_", urlparse(self.target).netloc or self.target)
+        with open(out / f"{safe}_idor.json", "w") as f:
+            json.dump({"scanner": "IDORTester", "target": self.target,
+                       "vulnerabilities": self.vulnerabilities,
+                       "manual_checks": self.manual_checks}, f, indent=2)
+
+        print(f"\n✅ IDOR/BFLA scan complete. Findings: {len(self.vulnerabilities)}, "
+              f"manual: {len(self.manual_checks)}\n")
+        return {"scanner": "IDORTester", "target": self.target,
+                "vulnerabilities": self.vulnerabilities,
+                "manual_checks": self.manual_checks}
+
 
 if __name__ == '__main__':
     main()

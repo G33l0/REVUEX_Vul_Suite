@@ -15,6 +15,7 @@ import requests
 import threading
 import time
 import json
+import re
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import queue
@@ -179,8 +180,139 @@ else:
                 'Use message queues for sequential processing',
                 'Monitor for duplicate operations and alert'
             ],
-            'tags': ['race_condition', 'critical', 'timing', 'TOCTOU']
+            'tags': ['race_condition', 'high', 'timing', 'TOCTOU'],
+            'owasp_2025': 'A10',
+            'confidence': 'needs-manual-verification',
         }
 
-    # Remaining methods (_create_resource_vulnerability, _create_state_vulnerability, _test_parallel_requests, _test_resource_exhaustion, _test_state_manipulation, _save_results)
+    def _create_resource_vulnerability(self, result):
+        return {
+            'type': 'Race Condition - Resource Exhaustion / Inconsistency',
+            'severity': 'medium',
+            'endpoint': self.endpoint,
+            'owasp_2025': 'A10',
+            'confidence': 'needs-manual-verification',
+            'description': ('Concurrent requests produced inconsistent responses, '
+                            'which may indicate missing locking around a shared '
+                            'resource.'),
+            'evidence': result.get('evidence'),
+            'remediation': [
+                'Use atomic DB operations / row locks for shared-resource updates',
+                'Apply idempotency keys to critical operations',
+            ],
+            'tags': ['race_condition', 'resource', 'TOCTOU'],
+        }
+
+    def _create_state_vulnerability(self, result):
+        return {
+            'type': 'Race Condition - State Manipulation',
+            'severity': 'high',
+            'endpoint': self.endpoint,
+            'owasp_2025': 'A10',
+            'confidence': 'needs-manual-verification',
+            'description': ('Parallel state-changing requests appear to interleave, '
+                            'which may allow bypassing a check-then-act guard.'),
+            'evidence': result.get('evidence'),
+            'remediation': [
+                'Serialize state transitions with a state machine + locking',
+                'Use SELECT ... FOR UPDATE / optimistic version checks',
+            ],
+            'tags': ['race_condition', 'state', 'TOCTOU'],
+        }
+
+    # ---------------- test methods (evidence-based) ----------------
+
+    def _fire_parallel(self, n: int, method: str = 'GET',
+                       json_body=None):
+        """Send n identical requests as simultaneously as possible and return a
+        list of (status_code, content_length). Fully guarded; returns [] on
+        total failure so the caller never crashes."""
+        results = []
+        lock_barrier = threading.Barrier(n) if n > 1 else None
+
+        def worker():
+            try:
+                if lock_barrier is not None:
+                    try:
+                        lock_barrier.wait(timeout=10)
+                    except threading.BrokenBarrierError:
+                        pass
+                if method == 'POST':
+                    r = requests.post(self.endpoint, headers=self.headers,
+                                      json=json_body or {}, timeout=15, verify=False)
+                else:
+                    r = requests.get(self.endpoint, headers=self.headers,
+                                     timeout=15, verify=False)
+                self.results_queue.put((r.status_code, len(r.text or "")))
+            except Exception as e:
+                self.results_queue.put(('error', str(e)))
+
+        threads = [threading.Thread(target=worker) for _ in range(n)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=20)
+
+        while not self.results_queue.empty():
+            results.append(self.results_queue.get())
+        return results
+
+    def _test_parallel_requests(self):
+        """Fire concurrent identical requests. A race *candidate* is flagged only
+        when responses are INCONSISTENT (mix of success and failure status
+        codes), which is a real signal — not merely that requests returned 200."""
+        out = {'vulnerable': False, 'evidence': None}
+        results = self._fire_parallel(10, 'GET')
+        statuses = [r[0] for r in results if r and r[0] != 'error']
+        if len(statuses) < 3:
+            return out
+        distinct = set(statuses)
+        successes = sum(1 for s in statuses if isinstance(s, int) and s < 400)
+        failures = sum(1 for s in statuses if isinstance(s, int) and s >= 400)
+        # Inconsistent outcome across identical simultaneous requests.
+        if successes >= 1 and failures >= 1 and len(distinct) > 1:
+            out['vulnerable'] = True
+            out['evidence'] = (f"Inconsistent concurrent responses: "
+                               f"{sorted(distinct)} (success={successes}, "
+                               f"fail={failures})")
+        return out
+
+    def _test_resource_exhaustion(self):
+        """Look for response-size inconsistency under concurrency (possible
+        shared-state corruption). Conservative; needs manual confirmation."""
+        out = {'vulnerable': False, 'evidence': None}
+        results = self._fire_parallel(8, 'GET')
+        lengths = [r[1] for r in results if r and r[0] != 'error' and isinstance(r[1], int)]
+        if len(lengths) < 4:
+            return out
+        if max(lengths) - min(lengths) > max(200, int(0.5 * (sum(lengths) / len(lengths)))):
+            out['vulnerable'] = True
+            out['evidence'] = (f"Response sizes varied widely under concurrency: "
+                               f"min={min(lengths)}, max={max(lengths)}")
+        return out
+
+    def _test_state_manipulation(self):
+        """Concurrent state-changing POSTs. Only flagged when more succeed than a
+        single logical operation should allow (inconsistent success count)."""
+        out = {'vulnerable': False, 'evidence': None}
+        results = self._fire_parallel(10, 'POST', json_body={'action': 'revuex_probe'})
+        statuses = [r[0] for r in results if r and r[0] != 'error']
+        if len(statuses) < 3:
+            return out
+        successes = sum(1 for s in statuses if isinstance(s, int) and s < 400)
+        failures = sum(1 for s in statuses if isinstance(s, int) and s >= 400)
+        if successes >= 1 and failures >= 1:
+            out['vulnerable'] = True
+            out['evidence'] = (f"Mixed outcomes on concurrent state-changing POSTs "
+                               f"(success={successes}, fail={failures})")
+        return out
+
+    def _save_results(self, vulnerabilities):
+        out_dir = self.workspace / "race_condition_tests"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r'[^\w\-]', '_', self.endpoint)
+        with open(out_dir / f"{safe}_race.json", 'w') as f:
+            json.dump({'scanner': 'RaceConditionTester', 'endpoint': self.endpoint,
+                       'vulnerabilities': vulnerabilities}, f, indent=2)
+        print(f"[+] Results saved to {out_dir / (safe + '_race.json')}")
     # should be similarly cleaned of fancy quotes, backticks, and indentation issues.
